@@ -1,6 +1,5 @@
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 import { DropdownItem } from './types';
-import { ReactNode } from 'react';
 
 export default function DropdownWithMenuIcon ({ dropdownItems }: {dropdownItems: DropdownItem[]}) {
   return (

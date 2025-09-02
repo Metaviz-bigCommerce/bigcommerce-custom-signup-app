@@ -1,0 +1,1 @@
+{"version":3,"sources":["turbopack:///[project]/app/signupFormFields/loading.tsx"],"sourcesContent":["export default function Loading () {\n    return (\n        <div>\n            <p>Loading...</p>\n        </div>\n    )\n}"],"names":[],"mappings":"8EAAe,SAAS,IACpB,MACI,CAAA,EAAA,EAAA,GAAA,EAAC,MAAA,UACG,CAAA,EAAA,EAAA,GAAA,EAAC,IAAA,UAAE,gBAGf"}

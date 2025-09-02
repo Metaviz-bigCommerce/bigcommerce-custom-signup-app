@@ -20,14 +20,8 @@ export default function Table ({columns, data, actions}: TableProps) {
             <tbody>
                 {data.map((row) => (
                     <tr key={row.id}>
-                        {columns.map((column) => (
-                            <>
-                                <td key={column.key}>{row[column.key]}</td>
-                                {!!actions ? (
-                                    <td className="px-4 py-2">{actions(row)}</td>
-                                ) : null}
-                            </>
-                        ))}
+                        {columns.map((column) => <td key={column.key}>{row[column.key]}</td>)}
+                        <td className="px-4 py-2">{actions?.(row)}</td>
                     </tr>
                 ))}
             </tbody>

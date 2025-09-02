@@ -85,7 +85,7 @@ const formFieldTypes: DropdownItem[] = [
     }
 ]
 
-export default function formFieldsSelection () {
+export default function FormFieldsSelection () {
     const [formFields, setFormFields] = useState<FormField[]>(initialFormFields);
 
     const tabs = [
