@@ -1,1 +1,6 @@
-{"version":3,"sources":["turbopack:///[project]/app/signupFormFields/loading.tsx"],"sourcesContent":["export default function Loading () {\n    return (\n        <div>\n            <p>Loading...</p>\n        </div>\n    )\n}"],"names":[],"mappings":"8EAAe,SAAS,IACpB,MACI,CAAA,EAAA,EAAA,GAAA,EAAC,MAAA,UACG,CAAA,EAAA,EAAA,GAAA,EAAC,IAAA,UAAE,gBAGf"}
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/macbook/Documents/Arham%20Asjid/apps/signup-flow-customizationn-app/bigcommerce-custom-signup-app/app/signupFormFields/loading.tsx"],"sourcesContent":["export default function Loading () {\n    return (\n        <div>\n            <p>Loading...</p>\n        </div>\n    )\n}"],"names":[],"mappings":";;;;;;AAAe,SAAS;IACpB,qBACI,8OAAC;kBACG,cAAA,8OAAC;sBAAE;;;;;;;;;;;AAGf","debugId":null}}]
+}

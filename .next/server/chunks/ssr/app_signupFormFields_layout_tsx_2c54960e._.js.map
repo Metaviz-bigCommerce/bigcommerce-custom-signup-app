@@ -1,1 +1,6 @@
-{"version":3,"sources":["turbopack:///[project]/app/signupFormFields/layout.tsx"],"sourcesContent":["export default function layout ({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n    return (\n        <div>\n            <h2>Form Fields Selection</h2>\n            <p>Choose the fields you want to show on your Signup Form</p>\n            {children}\n        </div>\n    )\n}"],"names":[],"mappings":"8EAAe,SAAS,EAAQ,UAC9B,CAAQ,CAGR,EACE,MACI,CAAA,EAAA,EAAA,IAAA,EAAC,MAAA,WACG,CAAA,EAAA,EAAA,GAAA,EAAC,KAAA,UAAG,0BACJ,CAAA,EAAA,EAAA,GAAA,EAAC,IAAA,UAAE,2DACF,IAGb"}
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/macbook/Documents/Arham%20Asjid/apps/signup-flow-customizationn-app/bigcommerce-custom-signup-app/app/signupFormFields/layout.tsx"],"sourcesContent":["export default function layout ({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n    return (\n        <div>\n            <FormHeader title=\"Form Fields Selection\" description=\"Choose the fields you want to show on your Signup Form\" />\n            {children}\n        </div>\n    )\n}"],"names":[],"mappings":";;;;;;AAAe,SAAS,OAAQ,EAC9B,QAAQ,EAGR;IACE,qBACI,8OAAC;;0BACG,8OAAC;gBAAW,OAAM;gBAAwB,aAAY;;;;;;YACrD;;;;;;;AAGb","debugId":null}}]
+}

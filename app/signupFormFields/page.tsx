@@ -5,7 +5,7 @@ import DropdownWithMenuIcon from "../../components/common/dropdownWithMenuIcon";
 import { Tabs } from "@/components/common/tabs";
 import Table from "@/components/common/table";
 
-interface FormField {
+interface FormFieldType {
     id: number,
     name: string,
     data: string,
@@ -18,7 +18,7 @@ interface Column {
     label: string,
 }
 
-const initialFormFields: FormField[] = [
+const initialFormFields: FormFieldType[] = [
     {
         id: 1,
         name: 'File Upload',
@@ -44,10 +44,6 @@ const columns: Column[] = [
     {
         key: 'type',
         label: 'Type'
-    },
-    {
-        key: 'actions',
-        label: 'Actions'
     }
 ]
 
@@ -82,40 +78,47 @@ const formFieldTypes: DropdownItem[] = [
     {
         id: 3,
         name: 'CheckBox'
-    }
+    },
+    {
+        id: 4,
+        name: 'Radio'
+    },
+    {
+        id: 5,
+        name: 'Select'
+    },
+    {
+        id: 6,
+        name: 'TextArea'
+    },
+    {
+        id: 7,
+        name: 'Date'
+    },
+    {
+        id: 8,
+        name: 'Time'
+    },
+    {
+        id: 9,
+        name: 'Email'
+    },
 ]
 
 export default function FormFieldsSelection () {
-    const [formFields, setFormFields] = useState<FormField[]>(initialFormFields);
+    const [formFields, setFormFields] = useState<FormFieldType[]>(initialFormFields);
 
     const tabs = [
         {
             id: 1,
             label: 'General Fields',
             content: (
-                <table>
-                    <thead>
-                        <tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
-                    </thead>
-                    <tbody>
-                        {formFields.map((formField) => (
-                            <tr key={formField.id}>
-                                <td>{formField.name}</td>
-                                <td>{formField.data}</td>
-                                <td>{formField.lastModified || 'N/A'}</td>
-                                <td>{formField.type}</td>
-                                <td className="relative">
-                                    <DropdownWithMenuIcon dropdownItems={actions} />
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <Table columns={columns} data={formFields} actions={(row) => <DropdownWithMenuIcon dropdownItems={actions}/>} />
             )
         },
         {
             id: 2,
-            label: 'Custom Fields',
+            label: 'Address Fields',
             content: (
                 <Table columns={columns} data={formFields} actions={(row) => <DropdownWithMenuIcon dropdownItems={actions}/>} />
             )
