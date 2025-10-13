@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/macbook/Documents/Arham%20Asjid/apps/signup-flow-customizationn-app/bigcommerce-custom-signup-app/app/signupFormFields/layout.tsx"],"sourcesContent":["export default function layout ({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n    return (\n        <div>\n            <FormHeader title=\"Form Fields Selection\" description=\"Choose the fields you want to show on your Signup Form\" />\n            {children}\n        </div>\n    )\n}"],"names":[],"mappings":";;;;;;AAAe,SAAS,OAAQ,EAC9B,QAAQ,EAGR;IACE,qBACI,8OAAC;;0BACG,8OAAC;gBAAW,OAAM;gBAAwB,aAAY;;;;;;YACrD;;;;;;;AAGb","debugId":null}}]
-}
