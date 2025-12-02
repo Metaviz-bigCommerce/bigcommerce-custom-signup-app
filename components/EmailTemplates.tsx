@@ -9,10 +9,22 @@ type Templates = Record<TemplateKey, { subject: string; body: string }>;
 
 const EmailTemplates: React.FC = () => {
   const [emailTemplates, setEmailTemplates] = useState<Templates>({
-    signup: { subject: 'Welcome! Your signup request has been received', body: 'Hi {{name}},\n\nThank you for signing up. Your request is being reviewed.' },
-    approval: { subject: 'Your account has been approved!', body: 'Hi {{name}},\n\nGreat news! Your account has been approved.' },
-    rejection: { subject: 'Update on your signup request', body: 'Hi {{name}},\n\nWe regret to inform you that your signup request could not be approved at this time.' },
-    moreInfo: { subject: 'Additional information needed', body: 'Hi {{name}},\n\nWe need some additional information to process your request.' }
+    signup: { 
+      subject: 'Notification from {{platform_name}}: Your Signup Request Has Been Received', 
+      body: 'Hi {{name}},\nWe have received your signup request and initiated the review process. Our team is currently validating the information you provided to ensure it meets our account requirements. You will receive an update once this review is complete. If any clarification or additional details are needed, we will contact you directly. Thank you for your patience while we complete this verification step.' 
+    },
+    approval: { 
+      subject: '{{platform_name}} Account Update: Your Application Has Been Approved', 
+      body: 'Hi {{name}},\nYour signup request has been approved, and your account is now active. You may now log in to begin configuring your store and accessing your dashboard. We recommend reviewing the available onboarding resources to support your initial setup. Should you need any assistance during this process, our support team is available to help. Thank you for choosing our platform for your business operations.' 
+    },
+    rejection: { 
+      subject: '{{platform_name}} Review Outcome: Status of Your Signup Request', 
+      body: 'Hi {{name}},\nAfter a thorough review of your signup information, we are unable to approve your request at this time. This decision reflects the criteria required for account activation on our platform. If you have updated information or additional context that may support reconsideration, you are welcome to reply to this email. Our team will review any new details you provide. Thank you for your interest in our services and for taking the time to apply.' 
+    },
+    moreInfo: { 
+      subject: 'Action Required from {{platform_name}}: Additional Details Needed to Proceed', 
+      body: 'Hi {{name}},\nTo proceed with your signup review, we require the following information: {{required_information}}. Providing accurate details will help us complete the verification process efficiently. You may submit the requested information through your signup portal or by replying directly to this email. Once received, we will resume the review and update you accordingly. Please let us know if you need clarification regarding any part of this request.' 
+    }
   });
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateKey>('signup');
 
@@ -59,7 +71,7 @@ const EmailTemplates: React.FC = () => {
                     ...emailTemplates,
                     [selectedTemplate]: { ...emailTemplates[selectedTemplate], subject: e.target.value }
                   })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent text-gray-900"
                   placeholder="Enter email subject"
                 />
               </div>
@@ -73,7 +85,7 @@ const EmailTemplates: React.FC = () => {
                     [selectedTemplate]: { ...emailTemplates[selectedTemplate], body: e.target.value }
                   })}
                   rows={12}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent font-mono text-sm"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent font-mono text-sm text-gray-900"
                   placeholder="Enter email content"
                 />
               </div>
@@ -81,7 +93,7 @@ const EmailTemplates: React.FC = () => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="text-sm font-semibold text-blue-900 mb-2">Available Variables</h4>
                 <div className="flex flex-wrap gap-2">
-                  {['{{name}}', '{{email}}', '{{date}}', '{{store_name}}'].map(variable => (
+                  {['{{name}}', '{{email}}', '{{date}}', '{{store_name}}', '{{platform_name}}', '{{required_information}}'].map(variable => (
                     <code key={variable} className="px-3 py-1 bg-white border border-blue-300 rounded text-xs text-blue-700 font-mono">
                       {variable}
                     </code>
