@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { arrayRemove, arrayUnion, deleteDoc, doc, getDoc, getFirestore, setDoc, updateDoc } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, setDoc, updateDoc, deleteField, addDoc, serverTimestamp, query, orderBy, limit as fsLimit, startAfter, where } from 'firebase/firestore';
 import { SessionProps, UserData } from '../../types';
 
 // Firebase config and initialization
@@ -42,7 +42,30 @@ export async function setStore(session: SessionProps) {
  
   const storeHash = context?.split('/')[1] || '';
   const ref = doc(db, 'stores', storeHash);
-  const data = { accessToken, adminId: id, scope };
+  const existing = await getDoc(ref);
+  let publicStoreId = existing.exists() ? (existing.data()?.publicStoreId as string | undefined) : undefined;
+  if (!publicStoreId) {
+    publicStoreId = `pub_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
+  }
+  const defaultForm = {
+    fields: [
+      { id: 1, type: 'text', label: 'Full Name', placeholder: 'Enter your name', required: true, labelColor: '#1f2937', labelSize: '14', labelWeight: '500', borderColor: '#d1d5db', borderWidth: '1', borderRadius: '6', bgColor: '#ffffff', padding: '10', fontSize: '14', textColor: '#1f2937' },
+      { id: 2, type: 'email', label: 'Email', placeholder: 'Enter your email', required: true, labelColor: '#1f2937', labelSize: '14', labelWeight: '500', borderColor: '#d1d5db', borderWidth: '1', borderRadius: '6', bgColor: '#ffffff', padding: '10', fontSize: '14', textColor: '#1f2937' },
+      { id: 3, type: 'phone', label: 'Phone', placeholder: 'Enter your phone', required: false, labelColor: '#1f2937', labelSize: '14', labelWeight: '500', borderColor: '#d1d5db', borderWidth: '1', borderRadius: '6', bgColor: '#ffffff', padding: '10', fontSize: '14', textColor: '#1f2937' }
+    ],
+    theme: {
+      title: 'Create your account',
+      subtitle: 'Please fill in the form to continue',
+      primaryColor: '#2563eb',
+      layout: 'split', // split | center
+      splitImageUrl: '',
+      buttonText: 'Create account',
+      buttonBg: '#2563eb',
+      buttonColor: '#ffffff',
+      buttonRadius: 10
+    }
+  };
+  const data = { accessToken, adminId: id, scope, signupForm: defaultForm, signupFormActive: false, publicStoreId };
  
   await setDoc(ref, data);
 
@@ -102,4 +125,117 @@ export async function deleteUser(userId: string, storeHash: string) {
   if (!dataAfter?.stores?.length) {
     await deleteDoc(userRef);
   }
+}
+
+export async function setStoreScriptUuid(storeHash: string, uuid: string) {
+  if (!storeHash) return;
+  const ref = doc(db, 'stores', storeHash);
+  const snap = await getDoc(ref);
+  const payload = uuid ? { signupScriptUuid: uuid } : { signupScriptUuid: deleteField() as any };
+  if (!snap.exists()) await setDoc(ref, payload as any, { merge: true } as any);
+  else await updateDoc(ref, payload as any);
+}
+
+export async function getStoreForm(storeHash: string) {
+  if (!storeHash) return null;
+  const ref = doc(db, 'stores', storeHash);
+  const snap = await getDoc(ref);
+  return snap.exists() ? (snap.data()?.signupForm || null) : null;
+}
+
+export async function setStoreForm(storeHash: string, form: any) {
+  if (!storeHash) return;
+  const ref = doc(db, 'stores', storeHash);
+  await setDoc(ref, { signupForm: form }, { merge: true } as any);
+}
+
+export async function setStoreFormActive(storeHash: string, active: boolean) {
+  if (!storeHash) return;
+  const ref = doc(db, 'stores', storeHash);
+  await setDoc(ref, { signupFormActive: active }, { merge: true } as any);
+}
+
+export async function getStoreSettings(storeHash: string) {
+  if (!storeHash) return null;
+  const ref = doc(db, 'stores', storeHash);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  return {
+    signupForm: data?.signupForm,
+    signupFormActive: data?.signupFormActive ?? false,
+    signupScriptUuid: data?.signupScriptUuid || '',
+  };
+}
+
+type SignupRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export async function getPublicStoreId(storeHash: string) {
+  if (!storeHash) throw new Error('Missing storeHash');
+  const ref = doc(db, 'stores', storeHash);
+  const snap = await getDoc(ref);
+  let publicStoreId = snap.exists() ? (snap.data()?.publicStoreId as string | undefined) : undefined;
+  if (!publicStoreId) {
+    publicStoreId = `pub_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
+    await setDoc(ref, { publicStoreId }, { merge: true } as any);
+  }
+  return publicStoreId;
+}
+
+export async function resolveStoreHashByPublicId(publicId: string) {
+  if (!publicId) return null;
+  const qy = query(collection(db, 'stores'), where('publicStoreId', '==', publicId), fsLimit(1));
+  const snapshot = await getDocs(qy);
+  if (snapshot.empty) return null;
+  return snapshot.docs[0].id;
+}
+
+export async function createSignupRequest(storeHash: string, payload: Record<string, any>) {
+  if (!storeHash) throw new Error('Missing storeHash');
+  const colRef = collection(db, 'stores', storeHash, 'signupRequests');
+  const docRef = await addDoc(colRef, {
+    data: payload?.data || {},
+    submittedAt: serverTimestamp(),
+    status: 'pending' as SignupRequestStatus,
+    meta: {
+      userAgent: payload?.userAgent || null,
+      origin: payload?.origin || null,
+      ip: payload?.ip || null,
+    },
+  });
+  return { id: docRef.id };
+}
+
+export async function listSignupRequests(storeHash: string, options?: { pageSize?: number; cursor?: string; status?: SignupRequestStatus }) {
+  if (!storeHash) throw new Error('Missing storeHash');
+  const { pageSize = 10, cursor, status } = options || {};
+  const colRef = collection(db, 'stores', storeHash, 'signupRequests');
+  let q = query(colRef, orderBy('submittedAt', 'desc'));
+  if (status) {
+    q = query(colRef, where('status', '==', status), orderBy('submittedAt', 'desc'));
+  }
+  // For cursor-based pagination we expect cursor to be an ISO string timestamp or Firestore Timestamp seconds
+  if (cursor) {
+    // We cannot directly use a string in startAfter without the document snapshot.
+    // Strategy: fetch the document by id passed as cursor, then startAfter(snapshot).
+    const cursorDoc = await getDoc(doc(db, 'stores', storeHash, 'signupRequests', cursor));
+    if (cursorDoc.exists()) {
+      q = query(q, fsLimit(pageSize), startAfter(cursorDoc));
+    } else {
+      q = query(q, fsLimit(pageSize));
+    }
+  } else {
+    q = query(q, fsLimit(pageSize));
+  }
+  const snapshot = await getDocs(q);
+  const items = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+  const nextCursor = snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1].id : null;
+  return { items, nextCursor };
+}
+
+export async function updateSignupRequestStatus(storeHash: string, id: string, status: SignupRequestStatus) {
+  if (!storeHash || !id) throw new Error('Missing storeHash or id');
+  const ref = doc(db, 'stores', storeHash, 'signupRequests', id);
+  await updateDoc(ref, { status });
+  return { ok: true };
 }

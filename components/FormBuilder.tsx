@@ -1,7 +1,9 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, GripVertical, Settings } from 'lucide-react';
+import { useBcScriptsActions, useStoreForm, useStoreFormActions } from '@/lib/hooks';
+import Skeleton from '@/components/Skeleton';
 
 type FieldType = 'text' | 'email' | 'phone' | 'number' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'date' | 'file' | 'url';
 
@@ -24,16 +26,47 @@ type FormField = {
 };
 
 const FormBuilder: React.FC = () => {
-  const [formFields, setFormFields] = useState<FormField[]>([
-    { id: 1, type: 'text', label: 'Full Name', placeholder: 'Enter your name', required: true, labelColor: '#1f2937', labelSize: '14', labelWeight: '500', borderColor: '#d1d5db', borderWidth: '1', borderRadius: '6', bgColor: '#ffffff', padding: '10', fontSize: '14', textColor: '#1f2937' }
-  ]);
+  const [formFields, setFormFields] = useState<FormField[]>([]);
   const [selectedField, setSelectedField] = useState<FormField | null>(null);
-  const [containerId, setContainerId] = useState<string>('custom-signup-container');
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [generatedPath, setGeneratedPath] = useState<string | null>(null);
-  const [isInstalling, setIsInstalling] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isToggling, setIsToggling] = useState<boolean>(false);
+  const defaultTheme = {
+    title: 'Create your account',
+    subtitle: 'Please fill in the form to continue',
+    primaryColor: '#2563eb',
+    layout: 'split',
+    splitImageUrl: '',
+    buttonText: 'Create account',
+    buttonBg: '#2563eb',
+    buttonColor: '#ffffff',
+    buttonRadius: 10
+  } as any;
+  const [theme, setTheme] = useState<any>(defaultTheme);
+  const { addScript, updateScript, deleteScript } = useBcScriptsActions();
+  const { form, active, scriptUuid, mutate } = useStoreForm();
+  const { saveForm, setActive } = useStoreFormActions();
 
   const fieldTypes: FieldType[] = ['text', 'email', 'phone', 'number', 'textarea', 'select', 'radio', 'checkbox', 'date', 'file', 'url'];
+
+  useEffect(() => {
+    if (form?.fields?.length) {
+      setFormFields(form.fields as any);
+    }
+    if (form?.theme) {
+      setTheme({ ...defaultTheme, ...(form.theme as any) });
+    }
+  }, [form]);
+
+  const isDirty = useMemo(() => {
+    if (!form) return false;
+    try {
+      const fieldsChanged = JSON.stringify(form?.fields || []) !== JSON.stringify(formFields || []);
+      const themeChanged = JSON.stringify(form?.theme || defaultTheme) !== JSON.stringify(theme || defaultTheme);
+      return fieldsChanged || themeChanged;
+    } catch {
+      return true;
+    }
+  }, [form, formFields, theme]);
 
   const addField = (type: FieldType) => {
     const newField: FormField = {
@@ -57,29 +90,136 @@ const FormBuilder: React.FC = () => {
   };
 
   async function addSignupFormScript() {
-    try {
-        const res = await fetch("/api/bc-scripts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                name: "Bootstrap",
-                description: "Build responsive websites",
-                src: "https://1c8fc2b03e4f.ngrok-free.app/custom-signup.min.js",
-                auto_uninstall: true,
-                load_method: "default",
-                location: "footer",
-                visibility: "all_pages",
-                kind: "src",
-                consent_category: "essential"
-            }),
-        });
+    const payload = {
+      name: "Custom Signup Form",
+      description: "Injects custom signup form script into the theme",
+      src: typeof window !== 'undefined' ? `${window.location.origin}/custom-signup.min.js` : "/custom-signup.min.js",
+      auto_uninstall: true,
+      load_method: "default",
+      location: "head",
+      visibility: "all_pages",
+      kind: "src",
+      consent_category: "essential"
+    };
+    const data = await addScript(payload);
+    console.log('addScript data:', data);
+    return data;
+  }
 
-        const data = await res.json();
-        console.log(data);
-    } catch (error) {
-        console.error(error);
+  async function handleSaveForm() {
+    setIsSaving(true);
+    try {
+      await saveForm({ fields: formFields, theme });
+      // If a script exists, regenerate JS and update the script
+      if (active && scriptUuid) {
+        await fetch('/api/generate-signup-script', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ formFields, theme })
+        });
+        await updateScript(scriptUuid, {
+          name: "Custom Signup Form",
+          description: "Updated custom signup form script",
+          src: typeof window !== 'undefined' ? `${window.location.origin}/custom-signup.min.js` : "/custom-signup.min.js",
+          auto_uninstall: true,
+          load_method: "default",
+          location: "head",
+          visibility: "all_pages",
+          kind: "src",
+          consent_category: "essential"
+        });
+      }
+      await mutate();
+      alert('Form saved.');
+    } catch (e: any) {
+      alert('Failed to save form: ' + (e?.message || 'Unknown error'));
+    } finally {
+      setIsSaving(false);
     }
-}
+  }
+
+  async function handleActivate() {
+    setIsToggling(true);
+    try {
+      // Generate embed JS for current fields
+      await fetch('/api/generate-signup-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formFields, theme })
+      });
+      const data = await addSignupFormScript();
+      const uuid = (data as any)?.data?.uuid;
+      await setActive(true);
+      await mutate();
+      alert('Form activated' + (uuid ? `: ${uuid}` : '.'));
+    } catch (e: any) {
+      alert('Failed to activate: ' + (e?.message || 'Unknown error'));
+    } finally {
+      setIsToggling(false);
+    }
+  }
+
+  async function handleDeactivate() {
+    setIsToggling(true);
+    try {
+      if (scriptUuid) {
+        await deleteScript(scriptUuid);
+      }
+      await setActive(false);
+      await mutate();
+      alert('Form deactivated.');
+    } catch (e: any) {
+      alert('Failed to deactivate: ' + (e?.message || 'Unknown error'));
+    } finally {
+      setIsToggling(false);
+    }
+  }
+
+  if (form === undefined) {
+    return (
+      <div className="grid grid-cols-12 gap-6 h-full">
+        <div className="col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <Skeleton className="h-6 w-40 mb-4" />
+          <div className="space-y-2 mb-6">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="p-3 rounded-lg border-2 border-gray-100">
+                <Skeleton className="h-4 w-48 mb-2" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            ))}
+          </div>
+          <Skeleton className="h-5 w-32 mb-3" />
+          <div className="grid grid-cols-2 gap-2">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        </div>
+        <div className="col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <Skeleton className="h-6 w-40 mb-4" />
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="mb-4">
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ))}
+        </div>
+        <div className="col-span-6">
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+            <Skeleton className="h-6 w-32 mb-6" />
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="h-4 w-40 mb-2" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const deleteField = (id: number) => {
     setFormFields(formFields.filter(f => f.id !== id));
@@ -166,65 +306,30 @@ const FormBuilder: React.FC = () => {
     <div className="h-full">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <label className="text-sm font-medium text-gray-700">Container ID</label>
-          <input
-            type="text"
-            value={containerId}
-            onChange={(e) => setContainerId(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-300 focus:border-transparent"
-            placeholder="custom-signup-container"
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          {generatedPath && (
-            <a href={generatedPath} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-700 underline">
-              View generated JS
-            </a>
+          <button
+            onClick={handleSaveForm}
+            className={`px-4 py-2 rounded-lg text-sm font-medium text-white ${isDirty ? 'bg-gray-800 hover:bg-gray-900' : 'bg-gray-300 cursor-not-allowed'} transition-colors`}
+            disabled={!isDirty || isSaving}
+          >
+            {isSaving ? 'Saving…' : 'Save Form'}
+          </button>
+          {active ? (
+            <button
+              onClick={handleDeactivate}
+              className={`px-4 py-2 rounded-lg text-sm font-medium text-white ${isToggling ? 'bg-rose-300' : 'bg-rose-600 hover:bg-rose-700'} transition-colors`}
+              disabled={isToggling}
+            >
+              {isToggling ? 'Deactivating…' : 'Deactivate'}
+            </button>
+          ) : (
+            <button
+              onClick={handleActivate}
+              className={`px-4 py-2 rounded-lg text-sm font-medium text-white ${isToggling ? 'bg-emerald-300' : 'bg-emerald-600 hover:bg-emerald-700'} transition-colors`}
+              disabled={isToggling}
+            >
+              {isToggling ? 'Activating…' : 'Activate'}
+            </button>
           )}
-          <button
-            onClick={async () => {
-              setIsInstalling(true);
-              try {
-                await addSignupFormScript();
-                alert('Script added to theme.');
-              } catch (e: any) {
-                alert('Failed to add script: ' + (e?.message || 'Unknown error'));
-              } finally {
-                setIsInstalling(false);
-              }
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium text-white ${isInstalling ? 'bg-emerald-300' : 'bg-emerald-600 hover:bg-emerald-700'} transition-colors`}
-            disabled={isInstalling}
-          >
-            {isInstalling ? 'Adding…' : 'Add JS to Theme'}
-          </button>
-          <button
-            onClick={async () => {
-              setIsGenerating(true);
-              setGeneratedPath(null);
-              try {
-                const res = await fetch('/api/generate-signup-script', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ formFields, containerId })
-                });
-                const data = await res.json();
-                if (data?.ok && data?.path) {
-                  setGeneratedPath(data.path);
-                } else {
-                  alert('Failed to generate script: ' + (data?.error || 'Unknown error'));
-                }
-              } catch (e: any) {
-                alert('Failed to generate script: ' + (e?.message || 'Unknown error'));
-              } finally {
-                setIsGenerating(false);
-              }
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium text-white ${isGenerating ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'} transition-colors`}
-            disabled={isGenerating}
-          >
-            {isGenerating ? 'Generating…' : 'Generate Embed JS'}
-          </button>
         </div>
       </div>
       <div className="grid grid-cols-12 gap-6 h-full">
@@ -274,6 +379,104 @@ const FormBuilder: React.FC = () => {
       </div>
 
       <div className="col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 p-6 h-full overflow-y-auto">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">Theme</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Title</label>
+              <input
+                type="text"
+                value={theme.title}
+                onChange={(e) => setTheme({ ...theme, title: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Subtitle</label>
+              <input
+                type="text"
+                value={theme.subtitle}
+                onChange={(e) => setTheme({ ...theme, subtitle: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Primary Color</label>
+                <input
+                  type="color"
+                  value={theme.primaryColor}
+                  onChange={(e) => setTheme({ ...theme, primaryColor: e.target.value })}
+                  className="w-full h-10 rounded-lg border border-gray-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Layout</label>
+                <select
+                  value={theme.layout}
+                  onChange={(e) => setTheme({ ...theme, layout: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                >
+                  <option value="split">Split</option>
+                  <option value="center">Center</option>
+                </select>
+              </div>
+            </div>
+            {theme.layout === 'split' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Split Image URL</label>
+                <input
+                  type="text"
+                  placeholder="https://example.com/hero.jpg"
+                  value={theme.splitImageUrl}
+                  onChange={(e) => setTheme({ ...theme, splitImageUrl: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                />
+              </div>
+            )}
+            <div className="border-t border-gray-100 pt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">Submit Button</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Text</label>
+                  <input
+                    type="text"
+                    value={theme.buttonText}
+                    onChange={(e) => setTheme({ ...theme, buttonText: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Background</label>
+                  <input
+                    type="color"
+                    value={theme.buttonBg}
+                    onChange={(e) => setTheme({ ...theme, buttonBg: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Text Color</label>
+                  <input
+                    type="color"
+                    value={theme.buttonColor}
+                    onChange={(e) => setTheme({ ...theme, buttonColor: e.target.value })}
+                    className="w-full h-10 rounded-lg border border-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Border Radius (px)</label>
+                  <input
+                    type="number"
+                    value={theme.buttonRadius}
+                    onChange={(e) => setTheme({ ...theme, buttonRadius: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         {selectedField ? (
           <>
             <h3 className="text-lg font-semibold text-gray-700 mb-4">Customize Field</h3>

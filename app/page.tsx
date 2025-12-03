@@ -1,6 +1,9 @@
+'use client';
+import { useSession } from '@/context/session';
 import { redirect } from 'next/navigation';
 
 export default function Page() {
-  redirect('/dashboard');
+  const { context } = useSession();
+  redirect(`/dashboard?context=${context}`);
 }
 

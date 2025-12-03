@@ -4,10 +4,11 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Settings, Users, Mail } from 'lucide-react';
+import { useSession } from '@/context/session';
 
 const NavBar: React.FC = () => {
   const pathname = usePathname();
-
+  const { context } = useSession();
   const isActive = (href: string) => pathname === href;
 
   return (
@@ -21,7 +22,7 @@ const NavBar: React.FC = () => {
             </div>
             <div className="flex gap-1">
               <Link
-                href="/dashboard"
+                href={`/dashboard?context=${context}`}
                 className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
                   isActive('/dashboard')
                     ? 'text-blue-600 border-b-2 border-blue-600'
@@ -32,7 +33,7 @@ const NavBar: React.FC = () => {
                 Dashboard
               </Link>
               <Link
-                href="/builder"
+                href={`/builder?context=${context}`}
                 className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
                   isActive('/builder')
                     ? 'text-blue-600 border-b-2 border-blue-600'
@@ -43,7 +44,7 @@ const NavBar: React.FC = () => {
                 Form Builder
               </Link>
               <Link
-                href="/requests"
+                href={`/requests?context=${context}`}
                 className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
                   isActive('/requests')
                     ? 'text-blue-600 border-b-2 border-blue-600'
@@ -54,7 +55,7 @@ const NavBar: React.FC = () => {
                 Requests
               </Link>
               <Link
-                href="/emails"
+                href={`/emails?context=${context}`}
                 className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
                   isActive('/emails')
                     ? 'text-blue-600 border-b-2 border-blue-600'
