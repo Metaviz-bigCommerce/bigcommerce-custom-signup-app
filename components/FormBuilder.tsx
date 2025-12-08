@@ -23,6 +23,10 @@ type FormField = {
   padding: string;
   fontSize: string;
   textColor: string;
+  // Special semantics for core/address fields
+  role?: 'first_name' | 'last_name' | 'email' | 'password' | 'country' | 'state';
+  locked?: boolean;
+  options?: Array<{ label: string; value: string }>;
 };
 
 const FormBuilder: React.FC = () => {
@@ -67,7 +71,8 @@ const FormBuilder: React.FC = () => {
 
   useEffect(() => {
     if (form?.fields?.length) {
-      setFormFields(form.fields as any);
+      // Ensure the 4 core fields exist in any loaded form
+      setFormFields(ensureCoreFields((form.fields as any) || []));
     }
     if (form?.theme) {
       const loadedTheme = { ...defaultTheme, ...(form.theme as any) };
@@ -87,9 +92,62 @@ const FormBuilder: React.FC = () => {
     }
   }, [form, formFields, theme]);
 
+  // Core required fields that must always exist
+  const coreFieldConfigs: Array<Pick<FormField, 'role' | 'label' | 'type' | 'placeholder'>> = [
+    { role: 'first_name', label: 'First Name', type: 'text', placeholder: 'Enter first name' },
+    { role: 'last_name', label: 'Last Name', type: 'text', placeholder: 'Enter last name' },
+    { role: 'email', label: 'Email', type: 'email', placeholder: 'Enter your email' },
+    { role: 'password', label: 'Password', type: 'text', placeholder: 'Create a password' }, // render as password in preview/runtime
+  ];
+
+  const ensureCoreFields = (fields: FormField[]): FormField[] => {
+    const next = [...fields];
+    const hasRole = (r: string) =>
+      next.some(f => f.role === r) ||
+      next.some(f => (f.label || '').trim().toLowerCase() === (coreFieldConfigs.find(cf => cf.role === r)?.label || '').toLowerCase());
+    for (const cfg of coreFieldConfigs) {
+      if (!hasRole(cfg.role!)) {
+        next.unshift({
+          id: Date.now() + Math.floor(Math.random() * 100000),
+          type: cfg.type,
+          label: cfg.label,
+          placeholder: cfg.placeholder,
+          required: true,
+          labelColor: '#1f2937',
+          labelSize: '14',
+          labelWeight: '600',
+          borderColor: '#d1d5db',
+          borderWidth: '1',
+          borderRadius: '6',
+          bgColor: '#ffffff',
+          padding: '10',
+          fontSize: '14',
+          textColor: '#1f2937',
+          role: cfg.role as any,
+          locked: true,
+        });
+      } else {
+        const idx = next.findIndex(
+          f => f.role === cfg.role || (f.label || '').trim().toLowerCase() === cfg.label.toLowerCase()
+        );
+        if (idx >= 0) {
+          next[idx] = {
+            ...next[idx],
+            required: true,
+            locked: true,
+            role: cfg.role as any,
+            type: cfg.type as any,
+            placeholder: next[idx].placeholder || cfg.placeholder,
+          };
+        }
+      }
+    }
+    return next;
+  };
+
   const handleReset = () => {
     // Clear all form fields
-    setFormFields([]);
+    setFormFields(ensureCoreFields([]));
     
     // Reset theme to defaults
     setTheme({ ...defaultTheme });
@@ -105,8 +163,8 @@ const FormBuilder: React.FC = () => {
     const newField: FormField = {
       id: Date.now(),
       type,
-      label: `New ${type} field`,
-      placeholder: `Enter ${type}`,
+      label: type === 'text' ? 'New text field' : `New ${type} field`,
+      placeholder: type === 'phone' ? 'Enter phone' : `Enter ${type}`,
       required: false,
       labelColor: '#1f2937',
       labelSize: '14',
@@ -119,7 +177,32 @@ const FormBuilder: React.FC = () => {
       fontSize: '14',
       textColor: '#1f2937'
     };
-    setFormFields([...formFields, newField]);
+    setFormFields(ensureCoreFields([...formFields, newField]));
+    setSelectedField(newField);
+    setShowFieldEditor(true);
+  };
+
+  const addAddressField = (role: 'country' | 'state') => {
+    const label = role === 'country' ? 'Country' : 'State / Province';
+    const newField: FormField = {
+      id: Date.now(),
+      type: 'select',
+      label,
+      placeholder: role === 'country' ? 'Select a country' : 'Select a state/province',
+      required: false,
+      labelColor: '#1f2937',
+      labelSize: '14',
+      labelWeight: '500',
+      borderColor: '#d1d5db',
+      borderWidth: '1',
+      borderRadius: '6',
+      bgColor: '#ffffff',
+      padding: '10',
+      fontSize: '14',
+      textColor: '#1f2937',
+      role,
+    };
+    setFormFields(ensureCoreFields([...formFields, newField]));
     setSelectedField(newField);
     setShowFieldEditor(true);
   };
@@ -145,13 +228,14 @@ const FormBuilder: React.FC = () => {
     setIsSaving(true);
     try {
       const normalizedTheme = normalizeThemeLayout(theme);
-      await saveForm({ fields: formFields, theme: normalizedTheme });
+      const withCore = ensureCoreFields(formFields);
+      await saveForm({ fields: withCore, theme: normalizedTheme });
       // If a script exists, regenerate JS and update the script
       if (active && scriptUuid) {
         await fetch('/api/generate-signup-script', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ formFields, theme: normalizedTheme })
+          body: JSON.stringify({ formFields: withCore, theme: normalizedTheme })
         });
         await updateScript(scriptUuid, {
           name: "Custom Signup Form",
@@ -180,10 +264,11 @@ const FormBuilder: React.FC = () => {
       // Normalize theme layout before generating script
       const normalizedTheme = normalizeThemeLayout(theme);
       // Generate embed JS for current fields
+      const withCore = ensureCoreFields(formFields);
       await fetch('/api/generate-signup-script', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formFields, theme: normalizedTheme })
+        body: JSON.stringify({ formFields: withCore, theme: normalizedTheme })
       });
       const data = await addSignupFormScript();
       const uuid = (data as any)?.data?.uuid;
@@ -251,7 +336,12 @@ const FormBuilder: React.FC = () => {
   }
 
   const deleteField = (id: number) => {
-    setFormFields(formFields.filter(f => f.id !== id));
+    const f = formFields.find(ff => ff.id === id);
+    if (f?.locked || (f?.role && ['first_name','last_name','email','password'].includes(f.role))) {
+      alert('This field is required and cannot be removed.');
+      return;
+    }
+    setFormFields(formFields.filter(ff => ff.id !== id));
     if (selectedField?.id === id) {
       setSelectedField(null);
       setShowFieldEditor(false);
@@ -276,6 +366,36 @@ const FormBuilder: React.FC = () => {
   };
 
   const FormPreview = () => {
+    // Country/State dynamic data for address fields
+    const [countryData, setCountryData] = useState<Array<{ countryName: string; countryShortCode: string; regions: Array<{ name: string; shortCode?: string }>;}>>([]);
+    const [selectedCountryCode, setSelectedCountryCode] = useState<string>('');
+    useEffect(() => {
+      let cancelled = false;
+      const load = async () => {
+        try {
+          const res = await fetch('https://cdn.jsdelivr.net/npm/country-region-data@3.0.0/data.json');
+          const json = await res.json();
+          if (!cancelled && Array.isArray(json)) {
+            setCountryData(json);
+          }
+        } catch {
+          if (!cancelled) {
+            // Minimal fallback to keep preview functional offline
+            setCountryData([
+              { countryName: 'United States', countryShortCode: 'US', regions: [{ name: 'California', shortCode: 'CA' }, { name: 'New York', shortCode: 'NY' }] },
+              { countryName: 'Canada', countryShortCode: 'CA', regions: [{ name: 'Ontario', shortCode: 'ON' }, { name: 'Quebec', shortCode: 'QC' }] },
+              { countryName: 'United Kingdom', countryShortCode: 'GB', regions: [{ name: 'England' }, { name: 'Scotland' }, { name: 'Wales' }, { name: 'Northern Ireland' }] },
+              { countryName: 'Australia', countryShortCode: 'AU', regions: [{ name: 'New South Wales', shortCode: 'NSW' }, { name: 'Victoria', shortCode: 'VIC' }] },
+              { countryName: 'India', countryShortCode: 'IN', regions: [{ name: 'Maharashtra' }, { name: 'Karnataka' }] },
+              { countryName: 'Pakistan', countryShortCode: 'PK', regions: [{ name: 'Punjab' }, { name: 'Sindh' }] },
+            ]);
+          }
+        }
+      };
+      load();
+      return () => { cancelled = true; };
+    }, []);
+
     // Normalize theme layout to match what will be generated
     const normalizedTheme = normalizeThemeLayout(theme);
     
@@ -346,7 +466,72 @@ const FormBuilder: React.FC = () => {
                 </label>
                 
                 {/* Input field - exact match from script */}
-                {field.type === 'textarea' ? (
+                {field.role === 'country' ? (
+                  <select
+                    value={selectedCountryCode}
+                    onChange={(e) => setSelectedCountryCode(e.target.value)}
+                    style={{
+                      borderColor: borderColor,
+                      borderWidth: borderWidth + 'px',
+                      borderStyle: 'solid',
+                      borderRadius: borderRadius + 'px',
+                      backgroundColor: bgColor,
+                      padding: padding + 'px',
+                      fontSize: fontSize + 'px',
+                      color: textColor,
+                      width: '100%',
+                      outline: 'none'
+                    }}
+                    aria-label={field.label}
+                  >
+                    <option value="">Select a country</option>
+                    {countryData.map(c => (
+                      <option key={c.countryShortCode} value={c.countryShortCode}>{c.countryName}</option>
+                    ))}
+                  </select>
+                ) : field.role === 'state' ? (
+                  countryData.find(c => c.countryShortCode === selectedCountryCode)?.regions?.length ? (
+                    <select
+                      style={{
+                        borderColor: borderColor,
+                        borderWidth: borderWidth + 'px',
+                        borderStyle: 'solid',
+                        borderRadius: borderRadius + 'px',
+                        backgroundColor: bgColor,
+                        padding: padding + 'px',
+                        fontSize: fontSize + 'px',
+                        color: textColor,
+                        width: '100%',
+                        outline: 'none'
+                      }}
+                      aria-label={field.label}
+                    >
+                      <option value="">Select a state/province</option>
+                      {countryData.find(c => c.countryShortCode === selectedCountryCode)!.regions.map((r, i) => (
+                        <option key={(r.shortCode || r.name) + i} value={r.shortCode || r.name}>{r.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder={selectedCountryCode ? 'Enter state/province' : 'Select a country first'}
+                      style={{
+                        borderColor: borderColor,
+                        borderWidth: borderWidth + 'px',
+                        borderStyle: 'solid',
+                        borderRadius: borderRadius + 'px',
+                        backgroundColor: bgColor,
+                        padding: padding + 'px',
+                        fontSize: fontSize + 'px',
+                        color: textColor,
+                        width: '100%',
+                        outline: 'none'
+                      }}
+                      aria-label={field.label}
+                      disabled={!selectedCountryCode}
+                    />
+                  )
+                ) : field.type === 'textarea' ? (
                   <textarea
                     placeholder={field.placeholder || ''}
                     rows={3}
@@ -401,7 +586,7 @@ const FormBuilder: React.FC = () => {
                   />
                 ) : (
                   <input
-                    type={field.type === 'phone' ? 'tel' : field.type}
+                    type={field.role === 'password' ? 'password' : (field.type === 'phone' ? 'tel' : field.type)}
                     placeholder={field.placeholder || ''}
                     style={{
                       borderColor: borderColor,
@@ -781,11 +966,14 @@ const FormBuilder: React.FC = () => {
                         <input
                           type="checkbox"
                           checked={localField.required}
-                          onChange={(e) => handleChange({ required: e.target.checked })}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          onChange={(e) => !localField.locked && handleChange({ required: e.target.checked })}
+                          className={`w-4 h-4 rounded focus:ring-2 ${localField.locked ? 'text-gray-300 cursor-not-allowed' : 'text-blue-600 cursor-pointer'} `}
                           id="required-checkbox"
+                          disabled={!!localField.locked}
                         />
-                        <label htmlFor="required-checkbox" className="text-sm font-medium text-gray-700 cursor-pointer">Required field</label>
+                        <label htmlFor="required-checkbox" className={`text-sm font-medium ${localField.locked ? 'text-gray-400' : 'text-gray-700'} ${localField.locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          Required field {localField.locked ? '(always on)' : ''}
+                        </label>
                       </div>
                     </div>
                   )}
@@ -1542,6 +1730,25 @@ const FormBuilder: React.FC = () => {
                             {type}
                           </button>
                         ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase text-gray-400 mb-1.5 font-medium">Address Fields</div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          onClick={() => addAddressField('country')}
+                          className="text-xs bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-2 py-1.5 rounded-md border border-slate-200 hover:border-blue-300 transition-all"
+                        >
+                          <Plus className="w-3 h-3 inline mr-1" />
+                          Country
+                        </button>
+                        <button
+                          onClick={() => addAddressField('state')}
+                          className="text-xs bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-2 py-1.5 rounded-md border border-slate-200 hover:border-blue-300 transition-all"
+                        >
+                          <Plus className="w-3 h-3 inline mr-1" />
+                          State / Province
+                        </button>
                       </div>
                     </div>
                     <div>

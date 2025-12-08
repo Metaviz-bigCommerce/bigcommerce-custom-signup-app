@@ -25,6 +25,14 @@ const RequestsManager: React.FC = () => {
   const [detailsSearch, setDetailsSearch] = useState('');
   const pageSize = 10;
 
+  // Approval dialog state
+  const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [customerGroups, setCustomerGroups] = useState<Array<any>>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [approving, setApproving] = useState(false);
+
   const load = async (cursor?: string | null, replace = false) => {
     if (!context) return;
     setLoading(true);
@@ -55,16 +63,44 @@ const RequestsManager: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, context]);
 
-  const approve = async (id: string) => {
+  const openApproveDialog = async (id: string) => {
     if (!context) return;
-    const res = await fetch(`/api/signup-requests?id=${encodeURIComponent(id)}&context=${encodeURIComponent(context)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'approved' }),
-    });
-    if (res.ok) {
-      setAllItems(allItems.map(it => it.id === id ? { ...it, status: 'approved' } : it));
+    setApproveTargetId(id);
+    setShowApproveDialog(true);
+    setSelectedGroupId(null);
+    setGroupsLoading(true);
+    try {
+      const res = await fetch(`/api/customer-groups?context=${encodeURIComponent(context)}`);
+      if (!res.ok) throw new Error(await res.text());
+      const json = await res.json();
+      setCustomerGroups(Array.isArray(json?.groups) ? json.groups : []);
+    } catch {
+      setCustomerGroups([]);
+    } finally {
+      setGroupsLoading(false);
+    }
+  };
+
+  const approve = async () => {
+    if (!context || !approveTargetId) return;
+    setApproving(true);
+    try {
+      const res = await fetch(`/api/signup-requests/approve?context=${encodeURIComponent(context)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: approveTargetId, customer_group_id: selectedGroupId || undefined }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        alert(txt || 'Failed to approve and create customer');
+        return;
+      }
+      setAllItems(allItems.map(it => it.id === approveTargetId ? { ...it, status: 'approved' } : it));
       setSelected(null);
+      setShowApproveDialog(false);
+      setApproveTargetId(null);
+    } finally {
+      setApproving(false);
     }
   };
   const reject = async (id: string) => {
@@ -469,7 +505,7 @@ const RequestsManager: React.FC = () => {
             <div className="px-6 py-4 border-t border-gray-100 bg-white sticky bottom-0">
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
-                  onClick={() => approve(selected.id)}
+                  onClick={() => openApproveDialog(selected.id)}
                   className="flex-1 bg-emerald-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
                 >
                   <span className="inline-flex items-center gap-2"><Check className="w-5 h-5" /> Approve</span>
@@ -499,6 +535,69 @@ const RequestsManager: React.FC = () => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showApproveDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <div className="text-lg font-bold text-gray-900">Approve request</div>
+              <div className="text-sm text-gray-600 mt-1">Create a BigCommerce customer. Optionally assign a customer group.</div>
+            </div>
+            <div className="px-6 py-5">
+              {groupsLoading ? (
+                <div className="text-sm text-gray-600">Loading customer groups…</div>
+              ) : (
+                <>
+                  <div className="text-sm font-medium text-gray-800 mb-2">Customer group</div>
+                  <div className="space-y-2 max-h-64 overflow-auto border border-gray-200 rounded-md p-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-800">
+                      <input
+                        type="radio"
+                        name="customer_group"
+                        checked={selectedGroupId === null}
+                        onChange={() => setSelectedGroupId(null)}
+                      />
+                      <span>Do not assign a group</span>
+                    </label>
+                    {customerGroups.map((g: any) => (
+                      <label key={g?.id} className="flex items-center gap-2 text-sm text-gray-800">
+                        <input
+                          type="radio"
+                          name="customer_group"
+                          checked={selectedGroupId === Number(g?.id)}
+                          onChange={() => setSelectedGroupId(Number(g?.id))}
+                        />
+                        <span className="flex-1">
+                          <span className="font-medium text-gray-900">{g?.name || `Group #${g?.id}`}</span>
+                          {g?.is_default ? <span className="ml-2 text-xs text-gray-500">(default)</span> : null}
+                        </span>
+                      </label>
+                    ))}
+                    {!customerGroups.length && (
+                      <div className="text-sm text-gray-500">No customer groups found.</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+              <button
+                onClick={() => { if (!approving) { setShowApproveDialog(false); setApproveTargetId(null); } }}
+                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                disabled={approving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => approve()}
+                disabled={approving}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {approving ? 'Approving…' : 'Approve and Create Customer'}
+              </button>
             </div>
           </div>
         </div>
