@@ -63,7 +63,8 @@ const FormBuilder: React.FC = () => {
     buttonText: 'Create account',
     buttonBg: '#2563eb',
     buttonColor: '#ffffff',
-    buttonRadius: 10
+    buttonRadius: 10,
+    formBackgroundColor: '#ffffff'
   } as any;
   const [theme, setTheme] = useState<any>(defaultTheme);
   const { addScript, updateScript, deleteScript } = useBcScriptsActions();
@@ -781,6 +782,7 @@ const FormBuilder: React.FC = () => {
     const btnc = normalizedTheme.buttonColor || '#fff';
     const btnr = normalizedTheme.buttonRadius == null ? 10 : normalizedTheme.buttonRadius;
     const btnt = normalizedTheme.buttonText || 'Create account';
+    const formBg = normalizedTheme.formBackgroundColor || '#ffffff';
     
     // Form content component - matching exact script structure
     const FormContent = () => (
@@ -1172,7 +1174,7 @@ const FormBuilder: React.FC = () => {
                   style={{
                     width: '100%',
                     maxWidth: '520px',
-                    background: 'rgba(255,255,255,0.9)',
+                    background: formBg,
                     backdropFilter: 'saturate(180%) blur(8px)',
                     border: '1px solid #e5e7eb',
                     borderRadius: '16px',
@@ -1216,7 +1218,7 @@ const FormBuilder: React.FC = () => {
                   style={{
                     width: '100%',
                     maxWidth: '520px',
-                    background: 'rgba(255,255,255,0.9)',
+                    background: formBg,
                     backdropFilter: 'saturate(180%) blur(8px)',
                     border: '1px solid #e5e7eb',
                     borderRadius: '16px',
@@ -1759,6 +1761,11 @@ const FormBuilder: React.FC = () => {
                         value={localTheme.primaryColor}
                         onChange={(value) => handleThemeChange({ primaryColor: value })}
                       />
+                      <ColorPicker
+                        label="Form Background Color"
+                        value={localTheme.formBackgroundColor || '#ffffff'}
+                        onChange={(value) => handleThemeChange({ formBackgroundColor: value })}
+                      />
                     </div>
                   )}
                 </div>
@@ -1875,7 +1882,10 @@ const FormBuilder: React.FC = () => {
                     <Eye className="w-4 h-4 text-gray-600" />
                     <h4 className="text-sm font-semibold text-gray-700">Live Preview</h4>
                   </div>
-                  <div className="bg-white rounded-lg shadow-lg p-6 border border-slate-200">
+                  <div 
+                    className="rounded-lg shadow-lg p-6 border border-slate-200"
+                    style={{ backgroundColor: localTheme.formBackgroundColor || '#ffffff' }}
+                  >
                     <div className="space-y-4">
                       <div>
                         <h2 
@@ -2518,8 +2528,8 @@ const FormBuilder: React.FC = () => {
       
       {/* Reset Confirmation Dialog */}
       {showResetConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowResetConfirm(false)}>
-          <div className="bg-white rounded-xl shadow-md max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" onClick={() => setShowResetConfirm(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-2">Reset Form Builder</h3>
               <p className="text-sm text-gray-600 mb-6">

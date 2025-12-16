@@ -224,6 +224,54 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded }: Version
     }
   };
 
+  const formatDateShort = (timestamp: any) => {
+    if (!timestamp) return 'Unknown';
+    try {
+      let date: Date;
+      
+      // Handle Firestore Timestamp object (client-side)
+      if (timestamp && typeof timestamp.toDate === 'function') {
+        date = timestamp.toDate();
+      }
+      // Handle Firestore Timestamp serialized as object with seconds/nanoseconds (or _seconds/_nanoseconds)
+      else if (timestamp && (typeof timestamp.seconds === 'number' || typeof (timestamp as any)._seconds === 'number')) {
+        const seconds = timestamp.seconds || (timestamp as any)._seconds || 0;
+        const nanoseconds = timestamp.nanoseconds || (timestamp as any)._nanoseconds || 0;
+        date = new Date(seconds * 1000 + nanoseconds / 1000000);
+      }
+      // Handle ISO string or number
+      else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+        date = new Date(timestamp);
+      }
+      // Already a Date object
+      else if (timestamp instanceof Date) {
+        date = timestamp;
+      }
+      // Try to parse as date if it's an object with a value property
+      else if (timestamp && typeof timestamp === 'object' && 'value' in timestamp) {
+        date = new Date(timestamp.value);
+      }
+      else {
+        return 'Unknown';
+      }
+
+      // Check if date is valid
+      if (!date || isNaN(date.getTime()) || date.getTime() === 0) {
+        return 'Unknown';
+      }
+
+      const day = date.getDate();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear().toString().slice(-2);
+
+      return `${day}-${month}-${year}`;
+    } catch (e) {
+      console.error('Error formatting date:', e, timestamp);
+      return 'Unknown';
+    }
+  };
+
   const getTypeBadge = (type: string) => {
     const styles = {
       published: 'bg-green-100 text-green-700 border-green-300',
@@ -246,7 +294,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded }: Version
       {filteredVersions.map((version: any) => (
         <div
           key={version.id}
-          className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer group relative overflow-hidden"
+          className="bg-white border border-slate-200 rounded-xl p-[14px] hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer group relative overflow-hidden"
           onClick={() => handleLoad(version)}
         >
           {/* Active indicator bar */}
@@ -257,89 +305,77 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded }: Version
           <div className="flex flex-col h-full">
             {/* Form Preview Thumbnail */}
             {version.form && (
-              <div className="mb-4 -mx-5 -mt-5 bg-slate-50 border-b border-slate-200 overflow-hidden rounded-t-xl" style={{ height: '90px', position: 'relative' }}>
+              <div className="mb-3 -mx-[14px] -mt-[14px] bg-slate-50 border-b border-slate-200 overflow-hidden rounded-t-xl" style={{ height: '140px', position: 'relative' }}>
                 <div className="relative w-full h-full" style={{ overflow: 'hidden' }}>
                   <FormPreviewThumbnail form={version.form} />
                 </div>
               </div>
             )}
             
-            {/* Header */}
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-gray-900 truncate mb-2 group-hover:text-blue-600 transition-colors">
-                  {version.name || 'Unnamed'}
-                </h3>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${getTypeBadge(version.type)}`}>
-                    {version.type || 'version'}
-                  </span>
-                  {version.isActive && (
-                    <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-green-100 text-green-700 border border-green-300 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Active
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Dates */}
-            <div className="text-sm text-gray-600 space-y-1 mb-4 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-gray-400">Updated:</span>
-                <span className="font-medium">{formatDate(version.updatedAt)}</span>
-              </div>
-              {version.createdAt && version.createdAt !== version.updatedAt && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-400">Created:</span>
-                  <span className="font-medium">{formatDate(version.createdAt)}</span>
-                </div>
+            {/* Header - Name and version badge */}
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-0.5 rounded text-xs font-semibold border flex-shrink-0 ${getTypeBadge(version.type)}`}>
+                {version.type || 'version'}
+              </span>
+              {version.isActive && (
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700 border border-green-300 flex items-center gap-1 flex-shrink-0">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Active
+                </span>
               )}
+              <h3 className="text-base font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                {version.name || 'Unnamed'}
+              </h3>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => handleLoad(version)}
-                className="px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                title="Load into Builder - Open this version in the form builder"
-              >
-                <FileEdit className="w-4 h-4" />
-                Load
-              </button>
-              <div className="flex items-center gap-1">
+            {/* Date modified and Actions - Single row */}
+            <div className="flex items-center justify-between pt-2" onClick={(e) => e.stopPropagation()}>
+              {/* Left side - Date modified */}
+              <div className="text-xs text-gray-500">
+                <span className="text-gray-400">Last modified:</span> {formatDateShort(version.updatedAt)}
+              </div>
+              
+              {/* Right side - Load button and other buttons */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => handleLoad(version)}
+                  className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+                  title="Load into Builder - Open this version in the form builder"
+                >
+                  <FileEdit className="w-3.5 h-3.5" />
+                  Load
+                </button>
                 {!version.isActive && (
                   <button
                     onClick={(e) => handleSetActive(version.id, e)}
                     disabled={activatingId === version.id}
-                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                    className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
                     title="Activate Version - Set this version as the active form"
                   >
                     {activatingId === version.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Power className="w-4 h-4" />
+                      <Power className="w-3.5 h-3.5" />
                     )}
                   </button>
                 )}
                 <button
                   onClick={(e) => handleEdit(version, e)}
-                  className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                  className="p-1.5 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
                   title="Rename Version - Change the name of this version"
                 >
-                  <Pencil className="w-4 h-4" />
+                  <Pencil className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={(e) => handleDelete(version.id, e)}
                   disabled={deletingId === version.id}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                   title="Delete Version - Permanently remove this version"
                 >
                   {deletingId === version.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   )}
                 </button>
               </div>
