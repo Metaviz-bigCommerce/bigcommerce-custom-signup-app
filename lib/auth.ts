@@ -1,12 +1,10 @@
 import BigCommerce from 'node-bigcommerce';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { QueryParams, SessionProps } from '../types/auth';
 import db from './db';
-
-const { AUTH_CALLBACK, CLIENT_ID, CLIENT_SECRET} = process.env;
-
-const JWT_KEY = process.env.JWT_KEY as string;
+import { env } from './env';
+import { logger } from './logger';
 
 interface BCPayload extends JwtPayload {
   context: string;
@@ -19,18 +17,18 @@ interface ApiConfig {
 
 // Used for internal configuration; 3rd party apps may remove
 const apiConfig: ApiConfig = {};
-if (process.env.API_URL && process.env.LOGIN_URL) {
-    apiConfig.apiUrl = process.env.API_URL;
-    apiConfig.loginUrl = process.env.LOGIN_URL;
+if (env.API_URL && env.LOGIN_URL) {
+    apiConfig.apiUrl = env.API_URL;
+    apiConfig.loginUrl = env.LOGIN_URL;
 }
 
 // Create BigCommerce instance
 // https://github.com/bigcommerce/node-bigcommerce
 const bigcommerce = new BigCommerce({
     logLevel: 'info',
-    clientId: CLIENT_ID,
-    secret: CLIENT_SECRET,
-    callback: AUTH_CALLBACK,
+    clientId: env.CLIENT_ID,
+    secret: env.CLIENT_SECRET,
+    callback: env.AUTH_CALLBACK,
     responseType: 'json',
     headers: { 'Accept-Encoding': '*' },
     apiVersion: 'v3',
@@ -38,13 +36,13 @@ const bigcommerce = new BigCommerce({
 });
 
 const bigcommerceSigned = new BigCommerce({
-    secret: CLIENT_SECRET,
+    secret: env.CLIENT_SECRET,
     responseType: 'json',
 });
 
 export function bigcommerceClient(accessToken: string, storeHash: string) {
     return new BigCommerce({
-        clientId: CLIENT_ID,
+        clientId: env.CLIENT_ID,
         accessToken,
         storeHash,
         responseType: 'json',
@@ -97,22 +95,35 @@ export function encodePayload(session: SessionProps) {
   const contextString = session?.context || session?.sub || '';
   const storeHash = contextString.split('/')[1] || '';
 
-  return jwt.sign({ context: storeHash }, JWT_KEY, { expiresIn: '24h' });
+  if (!storeHash) {
+    logger.warn('Attempted to encode payload without storeHash', { context: session?.context });
+    throw new Error('Cannot encode payload: missing store hash');
+  }
+
+  return jwt.sign({ context: storeHash }, env.JWT_KEY, { expiresIn: '24h' });
 }
 
 export function decodePayload(encodedContext: string): BCPayload | null {
-  try {
-    const decoded = jwt.verify(encodedContext, JWT_KEY) as JwtPayload | string;
+  if (!encodedContext || typeof encodedContext !== 'string') {
+    return null;
+  }
 
-    if (typeof decoded === "string") return null;
+  try {
+    const decoded = jwt.verify(encodedContext, env.JWT_KEY) as JwtPayload | string;
+
+    if (typeof decoded === "string") {
+      logger.warn('JWT decode returned string instead of object', { encodedContext: encodedContext.substring(0, 20) + '...' });
+      return null;
+    }
 
     if (!decoded.context || typeof decoded.context !== "string") {
+      logger.warn('JWT payload missing or invalid context', { hasContext: !!decoded.context });
       return null;
     }
 
     return decoded as BCPayload;
   } catch (error) {
-    console.error("JWT verify failed:", error);
+    logger.warn('JWT verify failed', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 import { trySendTemplatedEmail } from '@/lib/email';
+import { env } from '@/lib/env';
 
 export async function POST(req: NextRequest) {
 	try {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
 		const config = await db.getEmailConfig(storeHash);
 		const t = (templates as any)?.[key];
 		if (!t) return NextResponse.json({ message: 'Unknown template' }, { status: 400 });
-		const platformName = process.env.PLATFORM_NAME || storeHash || 'Store';
+		const platformName = env.PLATFORM_NAME || storeHash || 'Store';
 		const res = await trySendTemplatedEmail({
 			to,
 			template: t,

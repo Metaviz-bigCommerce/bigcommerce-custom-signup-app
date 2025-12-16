@@ -5,10 +5,23 @@ import { useSession } from "../context/session";
 async function fetcher([url, encodedContext]: [string, string]) {
   const res = await fetch(`${url}?context=${encodedContext}`);
   if (!res.ok) {
-    throw new Error(`Failed to fetch: ${res.status}, ${await res.text()}`);
+    const errorText = await res.text();
+    throw new Error(`Failed to fetch: ${res.status}, ${errorText}`);
   }
   const json = await res.json();
   
+  // Handle new standardized response format
+  if (json && typeof json === 'object') {
+    if (json.error === false && json.data) {
+      return json.data;
+    }
+    // If it's an error response, throw
+    if (json.error === true) {
+      throw new Error(json.message || 'API error');
+    }
+  }
+  
+  // Fallback to old format for backward compatibility
   return json;
 }
 
@@ -79,15 +92,22 @@ export function useBcScriptsActions() {
 
 export function useStoreForm() {
   const encodedContext = useSession()?.context;
-  const { data, error, mutate } = useSWR(
+  const { data, error, mutate, isLoading } = useSWR(
     encodedContext ? ["/api/store-form", encodedContext] : null,
     fetcher
   );
+  
+  // Debug logging (remove in production)
+  if (process.env.NODE_ENV === 'development' && data !== undefined) {
+    console.log('[useStoreForm] Data received:', { hasData: !!data, hasForm: !!data?.form, formKeys: data?.form ? Object.keys(data.form) : [] });
+  }
+  
   return {
-    form: data?.form,
-    active: data?.active,
-    scriptUuid: data?.scriptUuid,
+    form: data?.form !== undefined ? data.form : undefined, // Keep undefined while loading, null when loaded but no form
+    active: data?.active || false,
+    scriptUuid: data?.scriptUuid || '',
     isError: error,
+    isLoading,
     mutate,
   };
 }
@@ -124,7 +144,7 @@ export function useFormVersions() {
     fetcher
   );
   return {
-    versions: data?.versions || [],
+    versions: data?.versions || data || [],
     isError: error,
     mutate,
   };

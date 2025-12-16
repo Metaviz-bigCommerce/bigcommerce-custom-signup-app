@@ -1,13 +1,15 @@
 'use client'
 
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { Plus, Trash2, GripVertical, Settings, X, Palette, RotateCcw, PanelLeftClose, PanelRight, ChevronDown, ChevronUp, Type, Layout, MousePointerClick, Image, Eye, Save, CheckCircle2, XCircle, Loader2, Link2, Unlink, Columns, Edit2, Check } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Settings, X, Palette, RotateCcw, PanelLeftClose, PanelRight, ChevronDown, ChevronUp, Type, Layout, MousePointerClick, Image, Eye, Save, CheckCircle2, XCircle, Loader2, Link2, Unlink, Columns, Edit2, Check, FilePlus } from 'lucide-react';
 import { useBcScriptsActions, useStoreForm, useStoreFormActions, useFormVersionActions, useFormVersions } from '@/lib/hooks';
 import Skeleton from '@/components/Skeleton';
 import SaveFormDropdown from '@/components/SaveFormDropdown';
 import VersionsList from '@/components/VersionsList';
 import { Tabs } from '@/components/common/tabs';
 import LoadVersionConfirmModal from '@/components/LoadVersionConfirmModal';
+import { useToast } from '@/components/common/Toast';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 type FieldType = 'text' | 'email' | 'phone' | 'number' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'date' | 'file' | 'url';
 
@@ -54,6 +56,11 @@ const FormBuilder: React.FC = () => {
   const [currentFormVersionId, setCurrentFormVersionId] = useState<string | null>(null);
   const [isEditingName, setIsEditingName] = useState<boolean>(false);
   const [editingName, setEditingName] = useState<string>('');
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; confirmVariant?: 'danger' | 'primary' }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  // Track last saved state for accurate dirty checking
+  const [lastSavedState, setLastSavedState] = useState<{ fields: FormField[]; theme: any } | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState<boolean>(false);
+  const toast = useToast();
   const defaultTheme = {
     title: 'Create your account',
     subtitle: 'Please fill in the form to continue',
@@ -68,7 +75,7 @@ const FormBuilder: React.FC = () => {
   } as any;
   const [theme, setTheme] = useState<any>(defaultTheme);
   const { addScript, updateScript, deleteScript } = useBcScriptsActions();
-  const { form, active, scriptUuid, mutate } = useStoreForm();
+  const { form, active, scriptUuid, mutate, isError, isLoading } = useStoreForm();
   const { saveForm, setActive } = useStoreFormActions();
   const { saveAsVersion, updateVersion } = useFormVersionActions();
   const { versions, mutate: mutateVersions } = useFormVersions();
@@ -87,15 +94,33 @@ const FormBuilder: React.FC = () => {
     return normalizedTheme;
   };
 
+  // Initialize form fields when form data is loaded
   useEffect(() => {
-    if (form?.fields?.length) {
+    // Only process if form is not undefined (either null or an object)
+    if (form === undefined) return; // Still loading
+    
+    if (form && form.fields && Array.isArray(form.fields) && form.fields.length > 0) {
       // Ensure the 4 core fields exist in any loaded form
-      setFormFields(ensureCoreFields((form.fields as any) || []));
+      const loadedFields = ensureCoreFields((form.fields as any) || []);
+      setFormFields(loadedFields);
+      // Update last saved state
+      const loadedTheme = normalizeThemeLayout({ ...defaultTheme, ...(form.theme as any) });
+      setLastSavedState({ fields: loadedFields, theme: loadedTheme });
+    } else if (form === null && formFields.length === 0) {
+      // If form is null (no saved form) and we haven't initialized fields yet, use defaults
+      const defaultFields = ensureCoreFields([]);
+      setFormFields(defaultFields);
+      // Set last saved state to null (no saved form yet)
+      setLastSavedState(null);
     }
+    
     if (form?.theme) {
       const loadedTheme = { ...defaultTheme, ...(form.theme as any) };
       // Normalize layout when loading from saved form
       setTheme(normalizeThemeLayout(loadedTheme));
+    } else if (form === null) {
+      // Reset to default theme when no form exists
+      setTheme(defaultTheme);
     }
   }, [form]);
 
@@ -126,16 +151,44 @@ const FormBuilder: React.FC = () => {
     }
   }, [form, versions, currentFormVersionId]);
 
+  // Helper function to normalize fields for comparison (remove IDs for comparison)
+  const normalizeFieldsForComparison = (fields: FormField[]): any[] => {
+    return fields.map(({ id, ...rest }) => rest).sort((a, b) => {
+      // Sort by role first (core fields first), then by label
+      const roleOrder = ['first_name', 'last_name', 'email', 'password'];
+      const aRoleIndex = roleOrder.indexOf(a.role || '');
+      const bRoleIndex = roleOrder.indexOf(b.role || '');
+      if (aRoleIndex !== -1 && bRoleIndex !== -1) return aRoleIndex - bRoleIndex;
+      if (aRoleIndex !== -1) return -1;
+      if (bRoleIndex !== -1) return 1;
+      return (a.label || '').localeCompare(b.label || '');
+    });
+  };
+
   const isDirty = useMemo(() => {
-    if (!form) return false;
     try {
-      const fieldsChanged = JSON.stringify(form?.fields || []) !== JSON.stringify(formFields || []);
-      const themeChanged = JSON.stringify(form?.theme || defaultTheme) !== JSON.stringify(theme || defaultTheme);
+      // If no saved state exists, check if current state differs from defaults
+      if (!lastSavedState) {
+        const defaultFields = ensureCoreFields([]);
+        const currentFieldsNormalized = normalizeFieldsForComparison(formFields);
+        const defaultFieldsNormalized = normalizeFieldsForComparison(defaultFields);
+        const fieldsChanged = JSON.stringify(defaultFieldsNormalized) !== JSON.stringify(currentFieldsNormalized);
+        const themeChanged = JSON.stringify(defaultTheme) !== JSON.stringify(normalizeThemeLayout(theme));
+        return fieldsChanged || themeChanged;
+      }
+
+      // Compare against last saved state
+      const savedFieldsNormalized = normalizeFieldsForComparison(lastSavedState.fields);
+      const currentFieldsNormalized = normalizeFieldsForComparison(formFields);
+      const fieldsChanged = JSON.stringify(savedFieldsNormalized) !== JSON.stringify(currentFieldsNormalized);
+      const themeChanged = JSON.stringify(normalizeThemeLayout(lastSavedState.theme)) !== JSON.stringify(normalizeThemeLayout(theme));
+      
       return fieldsChanged || themeChanged;
     } catch {
+      // On error, assume dirty to be safe
       return true;
     }
-  }, [form, formFields, theme]);
+  }, [lastSavedState, formFields, theme]);
 
   // Core required fields that must always exist
   const coreFieldConfigs: Array<Pick<FormField, 'role' | 'label' | 'type' | 'placeholder'>> = [
@@ -210,10 +263,15 @@ const FormBuilder: React.FC = () => {
 
   const handleReset = () => {
     // Clear all form fields
-    setFormFields(ensureCoreFields([]));
+    const defaultFields = ensureCoreFields([]);
+    setFormFields(defaultFields);
     
     // Reset theme to defaults
-    setTheme({ ...defaultTheme });
+    const defaultThemeCopy = { ...defaultTheme };
+    setTheme(defaultThemeCopy);
+    
+    // Update last saved state to null (form is reset, not saved)
+    setLastSavedState(null);
     
     // Reset form name
     setCurrentFormName('Unnamed');
@@ -328,12 +386,14 @@ const FormBuilder: React.FC = () => {
           consent_category: "essential"
         });
       }
+      // Update last saved state
+      setLastSavedState({ fields: withCore, theme: normalizedTheme });
       // When saving main form, check if it matches any version to update name
       await mutate();
       // The useEffect will automatically update the name if it matches a version
-      alert('Form saved.');
-    } catch (e: any) {
-      alert('Failed to save form: ' + (e?.message || 'Unknown error'));
+      toast.showSuccess('Form saved.');
+    } catch (e: unknown) {
+      toast.showError('Failed to save form: ' + (e instanceof Error ? e.message : 'Unknown error'));
     } finally {
       setIsSaving(false);
     }
@@ -350,10 +410,12 @@ const FormBuilder: React.FC = () => {
         setCurrentFormName(name || `Draft ${new Date().toLocaleDateString()}`);
         setCurrentFormVersionId(result.id);
       }
+      // Update last saved state
+      setLastSavedState({ fields: withCore, theme: normalizedTheme });
       await mutate();
-      alert('Draft saved successfully.');
-    } catch (e: any) {
-      alert('Failed to save draft: ' + (e?.message || 'Unknown error'));
+      toast.showSuccess('Draft saved successfully.');
+    } catch (e: unknown) {
+      toast.showError('Failed to save draft: ' + (e instanceof Error ? e.message : 'Unknown error'));
     } finally {
       setIsSaving(false);
     }
@@ -365,7 +427,7 @@ const FormBuilder: React.FC = () => {
       // If name is empty and form is not unnamed, use current form name
       const finalName = name.trim() || (currentFormName !== 'Unnamed' ? currentFormName : '');
       if (!finalName) {
-        alert('Version name is required');
+        toast.showWarning('Version name is required');
         setIsSaving(false);
         return;
       }
@@ -377,12 +439,59 @@ const FormBuilder: React.FC = () => {
         setCurrentFormName(finalName);
         setCurrentFormVersionId(result.id);
       }
+      // Update last saved state
+      setLastSavedState({ fields: withCore, theme: normalizedTheme });
       await mutate();
-      alert('Version saved successfully.');
-    } catch (e: any) {
-      alert('Failed to save version: ' + (e?.message || 'Unknown error'));
+      toast.showSuccess('Version saved successfully.');
+    } catch (e: unknown) {
+      toast.showError('Failed to save version: ' + (e instanceof Error ? e.message : 'Unknown error'));
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  function handleDiscardChanges() {
+    if (!lastSavedState) {
+      // If no saved state, reset to defaults
+      setFormFields(ensureCoreFields([]));
+      setTheme(defaultTheme);
+      setCurrentFormName('Unnamed');
+      setCurrentFormVersionId(null);
+      toast.showSuccess('Changes discarded.');
+      return;
+    }
+    // Restore from last saved state
+    setFormFields([...lastSavedState.fields]);
+    setTheme({ ...lastSavedState.theme });
+    toast.showSuccess('Changes discarded.');
+  }
+
+  function handleCreateNewForm() {
+    if (isDirty) {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Create New Form',
+        message: 'You have unsaved changes. These will be discarded if you create a new form. You can save your current form first, or discard changes to create a new form.',
+        onConfirm: async () => {
+          // Discard and create new
+          setFormFields(ensureCoreFields([]));
+          setTheme(defaultTheme);
+          setCurrentFormName('Unnamed');
+          setCurrentFormVersionId(null);
+          setLastSavedState(null);
+          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+          toast.showSuccess('New form created.');
+        },
+        confirmVariant: 'danger'
+      });
+    } else {
+      // No changes, just create new
+      setFormFields(ensureCoreFields([]));
+      setTheme(defaultTheme);
+      setCurrentFormName('Unnamed');
+      setCurrentFormVersionId(null);
+      setLastSavedState(null);
+      toast.showSuccess('New form created.');
     }
   }
 
@@ -398,13 +507,17 @@ const FormBuilder: React.FC = () => {
   }
 
   function loadVersionData(version: any, goToBuilder: boolean = false) {
-    if (version?.form?.fields) {
-      setFormFields(ensureCoreFields(version.form.fields));
-    }
-    if (version?.form?.theme) {
-      const loadedTheme = { ...defaultTheme, ...version.form.theme };
-      setTheme(normalizeThemeLayout(loadedTheme));
-    }
+    const loadedFields = version?.form?.fields ? ensureCoreFields(version.form.fields) : ensureCoreFields([]);
+    const loadedTheme = version?.form?.theme 
+      ? normalizeThemeLayout({ ...defaultTheme, ...version.form.theme })
+      : defaultTheme;
+    
+    setFormFields(loadedFields);
+    setTheme(loadedTheme);
+    
+    // Update last saved state
+    setLastSavedState({ fields: loadedFields, theme: loadedTheme });
+    
     // Update form name and version ID
     setCurrentFormName(version?.name || 'Unnamed');
     setCurrentFormVersionId(version?.id || null);
@@ -429,7 +542,7 @@ const FormBuilder: React.FC = () => {
 
   async function handleSaveName() {
     if (!editingName.trim()) {
-      alert('Name cannot be empty');
+      toast.showWarning('Name cannot be empty');
       return;
     }
 
@@ -452,7 +565,7 @@ const FormBuilder: React.FC = () => {
           .catch((e: any) => {
             // Revert on error
             setCurrentFormName(previousName);
-            alert('Failed to save name: ' + (e?.message || 'Unknown error'));
+            toast.showError('Failed to save name: ' + (e instanceof Error ? e.message : 'Unknown error'));
           });
       } else {
         // If it's unnamed, save as a new draft with this name
@@ -468,13 +581,13 @@ const FormBuilder: React.FC = () => {
           .catch((e: any) => {
             // Revert on error
             setCurrentFormName('Unnamed');
-            alert('Failed to save name: ' + (e?.message || 'Unknown error'));
+            toast.showError('Failed to save name: ' + (e instanceof Error ? e.message : 'Unknown error'));
           });
       }
     } catch (e: any) {
       // Revert on error
       setCurrentFormName(previousName);
-      alert('Failed to save name: ' + (e?.message || 'Unknown error'));
+      toast.showError('Failed to save name: ' + (e instanceof Error ? e.message : 'Unknown error'));
     }
   }
 
@@ -494,9 +607,9 @@ const FormBuilder: React.FC = () => {
       const uuid = (data as any)?.data?.uuid;
       await setActive(true);
       await mutate();
-      alert('Form activated' + (uuid ? `: ${uuid}` : '.'));
-    } catch (e: any) {
-      alert('Failed to activate: ' + (e?.message || 'Unknown error'));
+      toast.showSuccess('Form activated' + (uuid ? `: ${uuid}` : '.'));
+    } catch (e: unknown) {
+      toast.showError('Failed to activate: ' + (e instanceof Error ? e.message : 'Unknown error'));
     } finally {
       setIsToggling(false);
     }
@@ -510,15 +623,17 @@ const FormBuilder: React.FC = () => {
       }
       await setActive(false);
       await mutate();
-      alert('Form deactivated.');
-    } catch (e: any) {
-      alert('Failed to deactivate: ' + (e?.message || 'Unknown error'));
+      toast.showSuccess('Form deactivated.');
+    } catch (e: unknown) {
+      toast.showError('Failed to deactivate: ' + (e instanceof Error ? e.message : 'Unknown error'));
     } finally {
       setIsToggling(false);
     }
   }
 
-  if (form === undefined) {
+  // Show skeleton only while loading (form is undefined and not an error)
+  // If form is null, it means no form exists yet, so we'll initialize with defaults in useEffect
+  if ((form === undefined || isLoading) && !isError) {
     return (
       <div className="grid grid-cols-12 gap-6 h-full">
         <div className="col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -555,10 +670,27 @@ const FormBuilder: React.FC = () => {
     );
   }
 
+  // Show error message if there's an error
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Failed to load form data</p>
+          <button
+            onClick={() => mutate()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const deleteField = (id: number) => {
     const f = formFields.find(ff => ff.id === id);
     if (f?.locked || (f?.role && ['first_name','last_name','email','password'].includes(f.role))) {
-      alert('This field is required and cannot be removed.');
+      toast.showWarning('This field is required and cannot be removed.');
       return;
     }
     // If field is paired, unpair its partner
@@ -2095,6 +2227,35 @@ const FormBuilder: React.FC = () => {
               {/* Secondary Actions */}
               <div className="flex items-center gap-2 border-r border-slate-200 pr-2">
                 <button
+                  onClick={handleCreateNewForm}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm active:scale-[0.98]"
+                  title="Create a new form"
+                >
+                  <FilePlus className="w-4 h-4" />
+                  <span>New Form</span>
+                </button>
+                {isDirty && (
+                  <button
+                    onClick={() => {
+                      setConfirmDialog({
+                        isOpen: true,
+                        title: 'Discard Changes',
+                        message: 'Are you sure you want to discard all unsaved changes? This action cannot be undone.',
+                        onConfirm: () => {
+                          handleDiscardChanges();
+                          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+                        },
+                        confirmVariant: 'danger'
+                      });
+                    }}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 text-red-700 bg-white border border-red-300 hover:bg-red-50 hover:border-red-400 hover:shadow-sm active:scale-[0.98]"
+                    title="Discard unsaved changes"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Discard</span>
+                  </button>
+                )}
+                <button
                   onClick={() => setShowResetConfirm(true)}
                   className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm active:scale-[0.98]"
                   title="Reset form to default"
@@ -2564,6 +2725,19 @@ const FormBuilder: React.FC = () => {
         onConfirm={handleConfirmLoadVersion}
         onConfirmAndGoToBuilder={handleConfirmLoadAndGoToBuilder}
         versionName={pendingVersion?.name}
+      />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmVariant={confirmDialog.confirmVariant || 'danger'}
+        onConfirm={() => {
+          confirmDialog.onConfirm();
+          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+        }}
+        onCancel={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} })}
       />
     </div>
   );

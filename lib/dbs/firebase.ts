@@ -2,15 +2,14 @@ import { initializeApp } from 'firebase/app';
 import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, setDoc, updateDoc, deleteField, addDoc, serverTimestamp, query, orderBy, limit as fsLimit, startAfter, where } from 'firebase/firestore';
 import { SessionProps, UserData } from '../../types';
 import type { EmailConfig, EmailTemplates } from '../email';
+import { env } from '../env';
 
 // Firebase config and initialization
 // Prod applications might use config file
-const { FIRE_API_KEY, FIRE_DOMAIN, FIRE_PROJECT_ID } = process.env;
- 
 const firebaseConfig = {
-  apiKey: FIRE_API_KEY,
-  authDomain: FIRE_DOMAIN,
-  projectId: FIRE_PROJECT_ID,
+  apiKey: env.FIRE_API_KEY,
+  authDomain: env.FIRE_DOMAIN,
+  projectId: env.FIRE_PROJECT_ID,
 };
  
 const app = initializeApp(firebaseConfig);
@@ -196,6 +195,19 @@ export async function resolveStoreHashByPublicId(publicId: string) {
 export async function createSignupRequest(storeHash: string, payload: Record<string, any>) {
   if (!storeHash) throw new Error('Missing storeHash');
   const colRef = collection(db, 'stores', storeHash, 'signupRequests');
+  
+  // Check for idempotency key first
+  const idempotencyKey = payload?.idempotencyKey as string | undefined;
+  if (idempotencyKey) {
+    const idempotencyQ = query(colRef, where('meta.idempotencyKey', '==', idempotencyKey), fsLimit(1));
+    const idempotencySnap = await getDocs(idempotencyQ);
+    if (!idempotencySnap.empty) {
+      // Return existing request
+      const existing = idempotencySnap.docs[0];
+      return { id: existing.id, existing: true };
+    }
+  }
+  
   // Duplicate check by canonical email if provided
   const email = (payload as any)?.email ? String((payload as any).email).toLowerCase() : '';
   if (email) {
@@ -207,6 +219,7 @@ export async function createSignupRequest(storeHash: string, payload: Record<str
       throw err;
     }
   }
+  
   const docRef = await addDoc(colRef, {
     data: payload?.data || {},
     email: email || null,
@@ -216,6 +229,7 @@ export async function createSignupRequest(storeHash: string, payload: Record<str
       userAgent: payload?.userAgent || null,
       origin: payload?.origin || null,
       ip: payload?.ip || null,
+      idempotencyKey: idempotencyKey || null,
     },
   });
   return { id: docRef.id };

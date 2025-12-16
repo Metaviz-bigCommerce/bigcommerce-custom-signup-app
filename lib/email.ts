@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { env } from './env';
 
 type TemplateKey = 'signup' | 'approval' | 'rejection' | 'moreInfo';
 
@@ -11,11 +12,11 @@ export type EmailTemplate = {
 
 export type EmailTemplates = Record<TemplateKey, EmailTemplate>;
 
-const DEFAULT_FROM = process.env.EMAIL_FROM || 'no-reply@example.com';
-const SMTP_HOST = process.env.BREVO_SMTP_HOST || 'smtp-relay.brevo.com';
-const SMTP_PORT = Number(process.env.BREVO_SMTP_PORT || 587);
-const SMTP_USER = process.env.BREVO_SMTP_USER || '';
-const SMTP_PASS = process.env.BREVO_SMTP_KEY || process.env.BREVO_SMTP_PASS || '';
+const DEFAULT_FROM = env.EMAIL_FROM || 'no-reply@example.com';
+const SMTP_HOST = env.BREVO_SMTP_HOST || 'smtp-relay.brevo.com';
+const SMTP_PORT = Number(env.BREVO_SMTP_PORT || 587);
+const SMTP_USER = env.BREVO_SMTP_USER || '';
+const SMTP_PASS = env.BREVO_SMTP_KEY || env.BREVO_SMTP_PASS || '';
 
 let transporter: nodemailer.Transporter | null = null;
 if (SMTP_USER && SMTP_PASS) {
@@ -84,8 +85,8 @@ export async function sendEmail(params: {
 	const activeTransporter = tenantTransporter || transporter;
 	// Soft no-op if not configured
 	if (!activeTransporter) {
-		console.warn('[email] SMTP not configured; skipping email send to', to);
-		return { ok: false, skipped: true };
+		// Logging is handled by caller
+		return { ok: false, skipped: true, reason: 'SMTP not configured' };
 	}
 	try {
 		const fromName = (config?.fromName || '').trim() || undefined;
@@ -111,8 +112,8 @@ export async function sendEmail(params: {
 		});
 		return { ok: true };
 	} catch (e) {
-		console.error('[email] send failed', e);
-		return { ok: false };
+		// Error logging is handled by caller
+		return { ok: false, error: e instanceof Error ? e.message : String(e) };
 	}
 }
 

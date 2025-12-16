@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useFormVersions, useFormVersionActions } from '@/lib/hooks';
 import { Loader2, Trash2, CheckCircle2, FileEdit, Power, Pencil, Search, LayoutGrid, ListChecks } from 'lucide-react';
 import VersionNameModal from './VersionNameModal';
+import { useToast } from '@/components/common/Toast';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 // Form Preview Thumbnail Component - Compact preview showing just a small portion
 const FormPreviewThumbnail: React.FC<{ form: any }> = ({ form }) => {
@@ -114,6 +116,8 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded }: Version
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const toast = useToast();
 
   const filteredVersions = versions.filter((v: any) =>
     v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -122,18 +126,23 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded }: Version
 
   const handleDelete = async (versionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Are you sure you want to delete this version? This action cannot be undone.')) {
-      return;
-    }
-    setDeletingId(versionId);
-    try {
-      await deleteVersion(versionId);
-      await mutate();
-    } catch (error: any) {
-      alert('Failed to delete version: ' + (error?.message || 'Unknown error'));
-    } finally {
-      setDeletingId(null);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Version',
+      message: 'Are you sure you want to delete this version? This action cannot be undone.',
+      onConfirm: async () => {
+        setDeletingId(versionId);
+        try {
+          await deleteVersion(versionId);
+          await mutate();
+          toast.showSuccess('Version deleted successfully.');
+        } catch (error: unknown) {
+          toast.showError('Failed to delete version: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        } finally {
+          setDeletingId(null);
+        }
+      }
+    });
   };
 
   const handleSetActive = async (versionId: string, e: React.MouseEvent) => {
@@ -144,7 +153,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded }: Version
       await mutate();
       if (onVersionLoaded) onVersionLoaded();
     } catch (error: any) {
-      alert('Failed to set active version: ' + (error?.message || 'Unknown error'));
+      toast.showError('Failed to set active version: ' + (error?.message || 'Unknown error'));
     } finally {
       setActivatingId(null);
     }
@@ -169,7 +178,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded }: Version
       setEditingId(null);
       setEditName('');
     } catch (error: any) {
-      alert('Failed to update version name: ' + (error?.message || 'Unknown error'));
+      toast.showError('Failed to update version name: ' + (error?.message || 'Unknown error'));
     }
   };
 
@@ -566,6 +575,18 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded }: Version
         placeholder="Enter new name"
         required={true}
         initialName={editName}
+      />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={() => {
+          confirmDialog.onConfirm();
+          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+        }}
+        onCancel={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} })}
       />
     </div>
   );

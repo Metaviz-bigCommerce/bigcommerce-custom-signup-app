@@ -1,0 +1,177 @@
+/**
+ * Input validation schemas using Zod
+ */
+
+import { z } from 'zod';
+
+// File upload constraints
+export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const ALLOWED_FILE_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+] as const;
+
+// Common validation schemas
+export const emailSchema = z.string().email().toLowerCase().max(255);
+export const publicIdSchema = z.string().min(1).max(100).trim();
+export const requestIdSchema = z.string().min(1).max(200);
+
+// Signup request data schema
+export const signupRequestDataSchema = z.record(z.unknown()).refine(
+  (data) => Object.keys(data).length <= 100,
+  'Too many fields in request data'
+);
+
+// Signup request body schema (JSON)
+export const signupRequestBodySchema = z.object({
+  pub: publicIdSchema.optional(),
+  data: signupRequestDataSchema,
+  email: emailSchema.optional().nullable(),
+  idempotency_key: z.string().max(200).optional(),
+}).passthrough();
+
+// Signup request form data schema (multipart)
+export const signupRequestFormDataSchema = z.object({
+  pub: publicIdSchema,
+  data: z.string().transform((str) => {
+    try {
+      return JSON.parse(str || '{}');
+    } catch {
+      return {};
+    }
+  }).pipe(signupRequestDataSchema),
+  email: z.string().email().toLowerCase().max(255).optional().nullable(),
+  idempotency_key: z.string().max(200).optional(),
+});
+
+// File validation schema
+export const fileSchema = z.object({
+  name: z.string().min(1).max(255),
+  size: z.number().max(MAX_FILE_SIZE),
+  type: z.string().refine(
+    (type) => ALLOWED_FILE_TYPES.includes(type as typeof ALLOWED_FILE_TYPES[number]),
+    `File type not allowed. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}`
+  ),
+});
+
+// Store form schema
+export const formFieldSchema = z.object({
+  id: z.number(),
+  type: z.enum(['text', 'email', 'phone', 'number', 'textarea', 'select', 'radio', 'checkbox', 'date', 'file', 'url']),
+  label: z.string().min(1).max(200),
+  placeholder: z.string().max(200).optional(),
+  required: z.boolean(),
+  labelColor: z.string().max(20),
+  labelSize: z.string().max(10),
+  labelWeight: z.string().max(10),
+  borderColor: z.string().max(20),
+  borderWidth: z.string().max(10),
+  borderRadius: z.string().max(10),
+  bgColor: z.string().max(20),
+  padding: z.string().max(10),
+  fontSize: z.string().max(10),
+  textColor: z.string().max(20),
+  role: z.enum(['first_name', 'last_name', 'email', 'password', 'country', 'state']).optional(),
+  locked: z.boolean().optional(),
+  options: z.array(z.object({
+    label: z.string().max(200),
+    value: z.string().max(200),
+  })).optional(),
+  rowGroup: z.number().nullable().optional(),
+});
+
+export const formThemeSchema = z.object({
+  title: z.string().max(200),
+  subtitle: z.string().max(500).optional(),
+  primaryColor: z.string().max(20),
+  layout: z.enum(['split', 'center']),
+  splitImageUrl: z.string().url().max(2000).optional(),
+  buttonText: z.string().max(100),
+  buttonBg: z.string().max(20),
+  buttonColor: z.string().max(20),
+  buttonRadius: z.number().min(0).max(50),
+  formBackgroundColor: z.string().max(20).optional(),
+});
+
+export const storeFormSchema = z.object({
+  fields: z.array(formFieldSchema).max(100),
+  theme: formThemeSchema,
+});
+
+// Email template schema
+export const emailTemplateSchema = z.object({
+  subject: z.string().min(1).max(500),
+  body: z.string().min(1).max(10000),
+  html: z.string().max(50000).optional().nullable(),
+  useHtml: z.boolean().optional().nullable(),
+});
+
+export const emailTemplatesSchema = z.object({
+  signup: emailTemplateSchema,
+  approval: emailTemplateSchema,
+  rejection: emailTemplateSchema,
+  moreInfo: emailTemplateSchema,
+});
+
+// Email config schema
+export const emailSmtpConfigSchema = z.object({
+  host: z.string().min(1).max(255),
+  port: z.number().min(1).max(65535),
+  user: z.string().min(1).max(255),
+  pass: z.string().min(1).max(500),
+  secure: z.boolean().optional(),
+});
+
+export const emailConfigSchema = z.object({
+  fromEmail: z.string().email().max(255).optional().nullable(),
+  fromName: z.string().max(100).optional().nullable(),
+  replyTo: z.string().email().max(255).optional().nullable(),
+  useShared: z.boolean().optional().nullable(),
+  smtp: emailSmtpConfigSchema.optional().nullable(),
+});
+
+// Signup request status update schema
+export const signupRequestStatusSchema = z.object({
+  status: z.enum(['pending', 'approved', 'rejected']),
+});
+
+// Info request schema
+export const infoRequestSchema = z.object({
+  required_information: z.string().min(1).max(2000),
+});
+
+// Validation helper functions
+export function validateFile(file: File): { valid: boolean; error?: string } {
+  if (file.size > MAX_FILE_SIZE) {
+    return { valid: false, error: `File size exceeds maximum of ${MAX_FILE_SIZE / 1024 / 1024}MB` };
+  }
+  
+  if (!ALLOWED_FILE_TYPES.includes(file.type as typeof ALLOWED_FILE_TYPES[number])) {
+    return { valid: false, error: `File type ${file.type} is not allowed` };
+  }
+  
+  return { valid: true };
+}
+
+/**
+ * Safe JSON parse with validation
+ */
+export function safeJsonParse<T>(str: string, schema: z.ZodSchema<T>): { success: true; data: T } | { success: false; error: string } {
+  try {
+    const parsed = JSON.parse(str);
+    const result = schema.safeParse(parsed);
+    if (result.success) {
+      return { success: true, data: result.data };
+    }
+    return { success: false, error: result.error.errors.map(e => e.message).join(', ') };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Invalid JSON' };
+  }
+}
+

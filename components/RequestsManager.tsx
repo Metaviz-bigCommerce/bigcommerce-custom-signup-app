@@ -1,8 +1,10 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, X, Mail, Search, XCircle } from 'lucide-react';
+import { Check, X, Mail, Search, XCircle, RotateCcw, AlertCircle } from 'lucide-react';
 import { useSession } from '@/context/session';
+import { useToast } from '@/components/common/Toast';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 type RequestItem = {
   id: string;
@@ -32,6 +34,12 @@ const RequestsManager: React.FC = () => {
   const [customerGroups, setCustomerGroups] = useState<Array<any>>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [approving, setApproving] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [showRequestInfoModal, setShowRequestInfoModal] = useState(false);
+  const [requestInfoText, setRequestInfoText] = useState('');
+  const [requestInfoTargetId, setRequestInfoTargetId] = useState<string | null>(null);
+  const [sendingInfoRequest, setSendingInfoRequest] = useState(false);
+  const toast = useToast();
 
   const load = async (cursor?: string | null, replace = false) => {
     if (!context) return;
@@ -45,9 +53,15 @@ const RequestsManager: React.FC = () => {
       const res = await fetch(`/api/signup-requests?` + params.toString());
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
-      const newItems = replace ? json.items : [...allItems, ...json.items];
+      
+      // Handle new standardized response format
+      const responseData = json.error === false && json.data ? json.data : json;
+      const items = responseData.items || [];
+      const nextCursor = responseData.nextCursor || null;
+      
+      const newItems = replace ? items : [...allItems, ...items];
       setAllItems(newItems);
-      setNextCursor(json.nextCursor || null);
+      setNextCursor(nextCursor);
     } catch (e) {
       // noop simple UI
     } finally {
@@ -92,39 +106,98 @@ const RequestsManager: React.FC = () => {
       });
       if (!res.ok) {
         const txt = await res.text();
-        alert(txt || 'Failed to approve and create customer');
+        toast.showError(txt || 'Failed to approve and create customer');
         return;
       }
       setAllItems(allItems.map(it => it.id === approveTargetId ? { ...it, status: 'approved' } : it));
-      setSelected(null);
+      if (selected && selected.id === approveTargetId) {
+        setSelected({ ...selected, status: 'approved' });
+      }
       setShowApproveDialog(false);
       setApproveTargetId(null);
+      toast.showSuccess('Request approved and customer created successfully.');
     } finally {
       setApproving(false);
     }
   };
-  const reject = async (id: string) => {
+  const updateStatus = async (id: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     if (!context) return;
-    const res = await fetch(`/api/signup-requests?id=${encodeURIComponent(id)}&context=${encodeURIComponent(context)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'rejected' }),
-    });
-    if (res.ok) {
-      setAllItems(allItems.map(it => it.id === id ? { ...it, status: 'rejected' } : it));
-      setSelected(null);
+    try {
+      const res = await fetch(`/api/signup-requests?id=${encodeURIComponent(id)}&context=${encodeURIComponent(context)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setAllItems(allItems.map(it => it.id === id ? { ...it, status: newStatus } : it));
+        if (selected && selected.id === id) {
+          setSelected({ ...selected, status: newStatus });
+        }
+        toast.showSuccess(`Request status updated to ${newStatus}.`);
+      } else {
+        const errorText = await res.text();
+        toast.showError('Failed to update status: ' + errorText);
+      }
+    } catch (error: unknown) {
+      toast.showError('Failed to update status: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
-  const requestInfo = async (id: string) => {
-    if (!context) return;
-    const details = prompt('What information do you need from the user?');
-    if (details == null) return;
-    await fetch(`/api/signup-requests/info-request?id=${encodeURIComponent(id)}&context=${encodeURIComponent(context)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ required_information: details }),
+
+  const reject = async (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Reject Request',
+      message: 'Are you sure you want to reject this request? The user will be notified via email if email is configured.',
+      onConfirm: () => {
+        updateStatus(id, 'rejected');
+        setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+      }
     });
-    alert('Info request email sent (if email configured).');
+  };
+
+  const revertToPending = async (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Revert to Pending',
+      message: 'This will change the request status back to pending. Are you sure?',
+      onConfirm: () => {
+        updateStatus(id, 'pending');
+        setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+      }
+    });
+  };
+  const openRequestInfoModal = (id: string) => {
+    setRequestInfoTargetId(id);
+    setRequestInfoText('');
+    setShowRequestInfoModal(true);
+  };
+
+  const requestInfo = async () => {
+    if (!context || !requestInfoTargetId || !requestInfoText.trim()) {
+      toast.showWarning('Please enter the information you need from the user.');
+      return;
+    }
+    setSendingInfoRequest(true);
+    try {
+      const res = await fetch(`/api/signup-requests/info-request?id=${encodeURIComponent(requestInfoTargetId)}&context=${encodeURIComponent(context)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ required_information: requestInfoText.trim() }),
+      });
+      if (res.ok) {
+        toast.showSuccess('Info request email sent (if email configured).');
+        setShowRequestInfoModal(false);
+        setRequestInfoText('');
+        setRequestInfoTargetId(null);
+      } else {
+        const errorText = await res.text();
+        toast.showError('Failed to send info request: ' + errorText);
+      }
+    } catch (error: unknown) {
+      toast.showError('Failed to send info request: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setSendingInfoRequest(false);
+    }
   };
 
   const formatDate = (ts?: any) => {
@@ -205,6 +278,7 @@ const RequestsManager: React.FC = () => {
 
   // Filter items based on search criteria
   const filteredItems = useMemo(() => {
+    if (!allItems || !Array.isArray(allItems)) return [];
     let filtered = allItems;
     
     if (searchFilter.trim()) {
@@ -220,17 +294,35 @@ const RequestsManager: React.FC = () => {
   }, [allItems, searchFilter]);
   const remove = async (id: string) => {
     if (!context) return;
-    const ok = confirm('Delete this request? This action cannot be undone.');
-    if (!ok) return;
-    const res = await fetch(`/api/signup-requests?id=${encodeURIComponent(id)}&context=${encodeURIComponent(context)}`, {
-      method: 'DELETE',
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Request',
+      message: 'Are you sure you want to delete this request? This action cannot be undone.',
+      onConfirm: async () => {
+        await performDelete(id);
+      }
     });
-    if (res.ok) {
-      setSelected(null);
-      // Reload first page to reflect deletion quickly
-      setAllItems([]);
-      setNextCursor(null);
-      await load(null, true);
+  };
+
+  const performDelete = async (id: string) => {
+    if (!context) return;
+    try {
+      const res = await fetch(`/api/signup-requests?id=${encodeURIComponent(id)}&context=${encodeURIComponent(context)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setSelected(null);
+        // Reload first page to reflect deletion quickly
+        setAllItems([]);
+        setNextCursor(null);
+        await load(null, true);
+        toast.showSuccess('Request deleted successfully.');
+      } else {
+        const errorText = await res.text();
+        toast.showError('Failed to delete request: ' + errorText);
+      }
+    } catch (error: unknown) {
+      toast.showError('Failed to delete request: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -340,10 +432,10 @@ const RequestsManager: React.FC = () => {
                     <td className="px-6 py-4 text-sm text-gray-600">{email || '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{formatDate(request.submittedAt)}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                        request.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                        request.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                        'bg-rose-100 text-rose-700'
+                      <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-medium border ${
+                        request.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                        request.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        'bg-rose-50 text-rose-700 border-rose-200'
                       }`}>
                         {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                       </span>
@@ -387,20 +479,31 @@ const RequestsManager: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-gray-100 sticky top-0 bg-white/90 backdrop-blur z-10">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Request Details</h3>
-                  <p className="text-xs text-gray-500">ID: <span className="font-mono">{selected.id}</span></p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                    selected.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                    selected.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                    'bg-rose-100 text-rose-700'
+                <div className="flex items-center gap-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Request Details</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">ID: <span className="font-mono">{selected.id}</span></p>
+                  </div>
+                  <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium border ${
+                    selected.status === 'pending' 
+                      ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    selected.status === 'approved' 
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      'bg-rose-50 text-rose-700 border-rose-200'
                   }`}>
+                    {selected.status === 'pending' && <AlertCircle className="w-3.5 h-3.5 text-amber-700" />}
+                    {selected.status === 'approved' && <Check className="w-3.5 h-3.5 text-emerald-700" />}
+                    {selected.status === 'rejected' && <X className="w-3.5 h-3.5 text-rose-700" />}
                     {selected.status.charAt(0).toUpperCase() + selected.status.slice(1)}
                   </span>
-                  <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-gray-700 rounded-lg px-2 py-1">✕</button>
                 </div>
+                <button 
+                  onClick={() => setSelected(null)} 
+                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-2 transition-colors"
+                  title="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
             <div className="px-6 py-5 overflow-y-auto">
@@ -503,37 +606,112 @@ const RequestsManager: React.FC = () => {
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 bg-white sticky bottom-0">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => openApproveDialog(selected.id)}
-                  className="flex-1 bg-emerald-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
-                >
-                  <span className="inline-flex items-center gap-2"><Check className="w-5 h-5" /> Approve</span>
-                </button>
-                <button
-                  onClick={() => reject(selected.id)}
-                  className="flex-1 bg-rose-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-rose-700 transition-colors"
-                >
-                  <span className="inline-flex items-center gap-2"><X className="w-5 h-5" /> Reject</span>
-                </button>
-                <button
-                  onClick={() => requestInfo(selected.id)}
-                  className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                >
-                  <span className="inline-flex items-center gap-2"><Mail className="w-5 h-5" /> Request Info</span>
-                </button>
-                <button
-                  onClick={() => remove(selected.id)}
-                  className="px-6 py-3 text-rose-600 bg-white border border-rose-300 rounded-lg font-medium hover:bg-rose-50 transition-colors"
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={() => setSelected(null)}
-                  className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                >
-                  Close
-                </button>
+              {/* Status-based action buttons */}
+              <div className="flex flex-col gap-3">
+                {/* Primary Actions - Status-dependent */}
+                <div className="flex flex-wrap gap-2">
+                  {/* Show status badge */}
+                  <div className={`flex items-center gap-2.5 px-3 py-2 rounded-md border flex-1 min-w-[140px] ${
+                    selected.status === 'pending' 
+                      ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    selected.status === 'approved' 
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}>
+                    {selected.status === 'pending' && <AlertCircle className="w-4 h-4 text-amber-700" />}
+                    {selected.status === 'approved' && <Check className="w-4 h-4 text-emerald-700" />}
+                    {selected.status === 'rejected' && <X className="w-4 h-4 text-rose-700" />}
+                    <span className={`font-medium text-sm ${
+                      selected.status === 'pending' ? 'text-amber-700' :
+                      selected.status === 'approved' ? 'text-emerald-700' :
+                      'text-rose-700'
+                    }`}>
+                      {selected.status.charAt(0).toUpperCase() + selected.status.slice(1)}
+                    </span>
+                  </div>
+
+                  {/* Action buttons based on status */}
+                  {selected.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => openApproveDialog(selected.id)}
+                        className="flex-1 min-w-[140px] bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-emerald-700 active:bg-emerald-800 transition-colors shadow-sm hover:shadow active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>Approve</span>
+                      </button>
+                      <button
+                        onClick={() => reject(selected.id)}
+                        className="flex-1 min-w-[140px] bg-white text-rose-700 border-2 border-rose-300 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-rose-50 hover:border-rose-400 active:bg-rose-100 transition-colors shadow-sm hover:shadow active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Reject</span>
+                      </button>
+                    </>
+                  )}
+                  
+                  {selected.status === 'approved' && (
+                    <>
+                      <button
+                        onClick={() => reject(selected.id)}
+                        className="flex-1 min-w-[140px] bg-white text-rose-700 border-2 border-rose-300 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-rose-50 hover:border-rose-400 active:bg-rose-100 transition-colors shadow-sm hover:shadow active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Reject</span>
+                      </button>
+                      <button
+                        onClick={() => revertToPending(selected.id)}
+                        className="flex-1 min-w-[140px] bg-white text-slate-700 border-2 border-slate-300 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 transition-colors shadow-sm hover:shadow active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Revert to Pending</span>
+                      </button>
+                    </>
+                  )}
+                  
+                  {selected.status === 'rejected' && (
+                    <>
+                      <button
+                        onClick={() => openApproveDialog(selected.id)}
+                        className="flex-1 min-w-[140px] bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-emerald-700 active:bg-emerald-800 transition-colors shadow-sm hover:shadow active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>Approve</span>
+                      </button>
+                      <button
+                        onClick={() => revertToPending(selected.id)}
+                        className="flex-1 min-w-[140px] bg-white text-slate-700 border-2 border-slate-300 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 transition-colors shadow-sm hover:shadow active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Revert to Pending</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+                
+                {/* Secondary Actions - Always available */}
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                  <button
+                    onClick={() => openRequestInfoModal(selected.id)}
+                    className="flex-1 min-w-[140px] bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm hover:shadow active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Request Info</span>
+                  </button>
+                  <button
+                    onClick={() => remove(selected.id)}
+                    className="px-5 py-2.5 text-rose-700 bg-white border border-rose-300 rounded-lg text-sm font-semibold hover:bg-rose-50 hover:border-rose-400 active:bg-rose-100 transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Delete</span>
+                  </button>
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -594,9 +772,76 @@ const RequestsManager: React.FC = () => {
               <button
                 onClick={() => approve()}
                 disabled={approving}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-60"
+                className="px-5 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
               >
                 {approving ? 'Approving…' : 'Approve and Create Customer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={() => {
+          confirmDialog.onConfirm();
+          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+        }}
+        onCancel={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} })}
+      />
+
+      {/* Request Info Modal */}
+      {showRequestInfoModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <div className="text-lg font-bold text-gray-900">Request Information from User</div>
+              <div className="text-sm text-gray-600 mt-1">Enter the information you need from the user. An email will be sent if email is configured.</div>
+            </div>
+            <div className="px-6 py-5">
+              <label className="block text-sm font-medium text-gray-800 mb-2">
+                Required Information
+              </label>
+              <textarea
+                value={requestInfoText}
+                onChange={(e) => setRequestInfoText(e.target.value)}
+                placeholder="e.g., Please provide additional documentation for verification..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
+                rows={4}
+                autoFocus
+              />
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowRequestInfoModal(false);
+                  setRequestInfoText('');
+                  setRequestInfoTargetId(null);
+                }}
+                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+                disabled={sendingInfoRequest}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={requestInfo}
+                disabled={sendingInfoRequest || !requestInfoText.trim()}
+                className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center justify-center gap-2"
+              >
+                {sendingInfoRequest ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send Request
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSession } from '@/context/session';
+import { useToast } from '@/components/common/Toast';
 
 type SmtpConfig = {
 	host: string;
@@ -24,6 +25,7 @@ const EmailConfigForm: React.FC = () => {
 	const [loading, setLoading] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+	const toast = useToast();
 	const [useShared, setUseShared] = useState(true);
 	const [fromEmail, setFromEmail] = useState('');
 	const [fromName, setFromName] = useState('');
@@ -120,7 +122,7 @@ const EmailConfigForm: React.FC = () => {
 		try {
 			// Require fromEmail when using custom SMTP
 			if (!useShared && !String(fromEmail || '').trim()) {
-				alert('Please provide a From Email when using your own SMTP.');
+				toast.showWarning('Please provide a From Email when using your own SMTP.');
 				return;
 			}
 			const payload: EmailConfig = {

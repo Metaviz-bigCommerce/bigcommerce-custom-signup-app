@@ -1,96 +1,152 @@
 import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { errorResponse, successResponse, apiErrors } from '@/lib/api-response';
+import { generateRequestId } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
+  const requestId = generateRequestId();
+  const logContext = { requestId };
+  
   try {
     const session = await getSession(req);
-    if (!session) return NextResponse.json({ message: 'Session not found' }, { status: 401 });
+    if (!session) {
+      return apiErrors.unauthorized(requestId);
+    }
+    
     const { storeHash } = session;
     const versions = await db.listFormVersions(storeHash);
     
     // Ensure timestamps are properly serialized
-    const serializedVersions = versions.map((v: any) => ({
-      ...v,
-      createdAt: v.createdAt || null,
-      updatedAt: v.updatedAt || null,
-    }));
+    const serializedVersions = versions.map((v: unknown) => {
+      const version = v as { createdAt?: unknown; updatedAt?: unknown; [key: string]: unknown };
+      return {
+        ...version,
+        createdAt: version.createdAt || null,
+        updatedAt: version.updatedAt || null,
+      };
+    });
     
-    return NextResponse.json({ versions: serializedVersions }, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json({ message: e?.message || 'Unknown error' }, { status: 500 });
+    return successResponse({ versions: serializedVersions }, 200, requestId);
+  } catch (error: unknown) {
+    logger.error('Failed to get form versions', error, logContext);
+    return apiErrors.internalError('Failed to retrieve form versions', error, requestId);
   }
 }
 
 export async function POST(req: NextRequest) {
+  const requestId = generateRequestId();
+  const logContext = { requestId };
+  
   try {
     const session = await getSession(req);
-    if (!session) return NextResponse.json({ message: 'Session not found' }, { status: 401 });
+    if (!session) {
+      return apiErrors.unauthorized(requestId);
+    }
+    
     const { storeHash } = session;
-    const body = await req.json();
-    const { name, type, form } = body || {};
+    
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      return errorResponse('Invalid JSON in request body', 400, 'VALIDATION_ERROR' as any, requestId);
+    }
+    
+    const { name, type, form } = body as { name?: string; type?: string; form?: unknown };
     
     if (!name || !type || !form) {
-      return NextResponse.json({ message: 'Missing required fields: name, type, form' }, { status: 400 });
+      return errorResponse('Missing required fields: name, type, form', 400, 'MISSING_REQUIRED_FIELD' as any, requestId);
     }
     
     if (!['draft', 'version'].includes(type)) {
-      return NextResponse.json({ message: 'Invalid type. Must be "draft" or "version"' }, { status: 400 });
+      return errorResponse('Invalid type. Must be "draft" or "version"', 400, 'VALIDATION_ERROR' as any, requestId);
     }
     
-    const result = await db.saveFormVersion(storeHash, { name, type: type as any, form });
-    return NextResponse.json({ ok: true, id: result.id }, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json({ message: e?.message || 'Unknown error' }, { status: 500 });
+    const result = await db.saveFormVersion(storeHash, { name, type: type as 'draft' | 'version', form });
+    
+    logger.info('Form version saved', { ...logContext, storeHash, name, type });
+    
+    return successResponse({ saved: true, id: result.id }, 200, requestId);
+  } catch (error: unknown) {
+    logger.error('Failed to save form version', error, logContext);
+    return apiErrors.internalError('Failed to save form version', error, requestId);
   }
 }
 
 export async function DELETE(req: NextRequest) {
+  const requestId = generateRequestId();
+  const logContext = { requestId };
+  
   try {
     const session = await getSession(req);
-    if (!session) return NextResponse.json({ message: 'Session not found' }, { status: 401 });
+    if (!session) {
+      return apiErrors.unauthorized(requestId);
+    }
+    
     const { storeHash } = session;
     const { searchParams } = new URL(req.url);
     const versionId = searchParams.get('versionId');
     
     if (!versionId) {
-      return NextResponse.json({ message: 'Missing versionId' }, { status: 400 });
+      return errorResponse('Missing versionId', 400, 'MISSING_REQUIRED_FIELD' as any, requestId);
     }
     
     await db.deleteFormVersion(storeHash, versionId);
-    return NextResponse.json({ ok: true }, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json({ message: e?.message || 'Unknown error' }, { status: 500 });
+    
+    logger.info('Form version deleted', { ...logContext, storeHash, versionId });
+    
+    return successResponse({ deleted: true }, 200, requestId);
+  } catch (error: unknown) {
+    logger.error('Failed to delete form version', error, logContext);
+    return apiErrors.internalError('Failed to delete form version', error, requestId);
   }
 }
 
 export async function PUT(req: NextRequest) {
+  const requestId = generateRequestId();
+  const logContext = { requestId };
+  
   try {
     const session = await getSession(req);
-    if (!session) return NextResponse.json({ message: 'Session not found' }, { status: 401 });
+    if (!session) {
+      return apiErrors.unauthorized(requestId);
+    }
+    
     const { storeHash } = session;
-    const body = await req.json();
-    const { action, versionId, name, form } = body || {};
+    
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      return errorResponse('Invalid JSON in request body', 400, 'VALIDATION_ERROR' as any, requestId);
+    }
+    
+    const { action, versionId, name, form } = body as { action?: string; versionId?: string; name?: string; form?: unknown };
     
     if (action === 'setActive') {
       if (!versionId) {
-        return NextResponse.json({ message: 'Missing versionId' }, { status: 400 });
+        return errorResponse('Missing versionId', 400, 'MISSING_REQUIRED_FIELD' as any, requestId);
       }
       await db.setActiveFormVersion(storeHash, versionId);
-      return NextResponse.json({ ok: true }, { status: 200 });
+      logger.info('Form version set as active', { ...logContext, storeHash, versionId });
+      return successResponse({ updated: true, action: 'setActive' }, 200, requestId);
     }
     
     if (action === 'update') {
       if (!versionId) {
-        return NextResponse.json({ message: 'Missing versionId' }, { status: 400 });
+        return errorResponse('Missing versionId', 400, 'MISSING_REQUIRED_FIELD' as any, requestId);
       }
       await db.updateFormVersion(storeHash, versionId, { name, form });
-      return NextResponse.json({ ok: true }, { status: 200 });
+      logger.info('Form version updated', { ...logContext, storeHash, versionId });
+      return successResponse({ updated: true, action: 'update' }, 200, requestId);
     }
     
-    return NextResponse.json({ message: 'Unknown action' }, { status: 400 });
-  } catch (e: any) {
-    return NextResponse.json({ message: e?.message || 'Unknown error' }, { status: 500 });
+    return errorResponse('Unknown action. Must be "setActive" or "update"', 400, 'VALIDATION_ERROR' as any, requestId);
+  } catch (error: unknown) {
+    logger.error('Failed to update form version', error, logContext);
+    return apiErrors.internalError('Failed to update form version', error, requestId);
   }
 }
 

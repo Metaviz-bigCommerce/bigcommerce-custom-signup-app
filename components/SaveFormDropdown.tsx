@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Save, ChevronDown, Loader2 } from 'lucide-react';
+import { Save, ChevronDown, Loader2, FileText, Tag } from 'lucide-react';
 import VersionNameModal from './VersionNameModal';
 
 interface SaveFormDropdownProps {
@@ -76,7 +76,7 @@ export default function SaveFormDropdown({
   const dropdownContent = isOpen && isDirty && !isSaving ? (
     <div
       ref={dropdownRef}
-      className="fixed w-56 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[9999]"
+      className="fixed w-64 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-[9999]"
       style={{
         top: `${dropdownPosition.top}px`,
         right: `${dropdownPosition.right}px`,
@@ -84,30 +84,39 @@ export default function SaveFormDropdown({
     >
       <button
         onClick={handleSave}
-        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+        className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-slate-100"
       >
-        <Save className="w-4 h-4" />
-        <span>Save</span>
+        <Save className="w-4 h-4 text-blue-600" />
+        <div className="flex flex-col">
+          <span className="font-medium">Save</span>
+          <span className="text-xs text-gray-500">Save current changes</span>
+        </div>
       </button>
       <button
         onClick={() => {
           setIsOpen(false);
           setShowDraftModal(true);
         }}
-        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+        className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-amber-50 transition-colors flex items-center gap-3 border-b border-slate-100"
       >
-        <Save className="w-4 h-4" />
-        <span>Save as Draft</span>
+        <FileText className="w-4 h-4 text-amber-600" />
+        <div className="flex flex-col">
+          <span className="font-medium">Save as Draft</span>
+          <span className="text-xs text-gray-500">Save as draft version</span>
+        </div>
       </button>
       <button
         onClick={() => {
           setIsOpen(false);
           setShowVersionModal(true);
         }}
-        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+        className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-purple-50 transition-colors flex items-center gap-3"
       >
-        <Save className="w-4 h-4" />
-        <span>Save as New Version</span>
+        <Tag className="w-4 h-4 text-purple-600" />
+        <div className="flex flex-col">
+          <span className="font-medium">Save as Version</span>
+          <span className="text-xs text-gray-500">Create a new version</span>
+        </div>
       </button>
     </div>
   ) : null;

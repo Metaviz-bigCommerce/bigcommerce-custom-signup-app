@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { env } from '@/lib/env';
 import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 import { trySendTemplatedEmail } from '@/lib/email';
@@ -279,7 +280,7 @@ export async function POST(req: NextRequest) {
     try {
       const templates = await db.getEmailTemplates(storeHash);
       const config = await db.getEmailConfig(storeHash);
-      const platformName = process.env.PLATFORM_NAME || storeHash || 'Store';
+      const platformName = env.PLATFORM_NAME || storeHash || 'Store';
       await trySendTemplatedEmail({
         to: email,
         template: templates.approval,

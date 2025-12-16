@@ -4,6 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Check, X, Users, Clock, TrendingUp, ArrowRight, Eye, Mail, Settings, Trash2 } from 'lucide-react';
 import { useSession } from '@/context/session';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { formatDate, extractName, extractEmail } from '@/lib/utils';
+import { useToast } from '@/components/common/Toast';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 type SignupRequestItem = {
   id: string;
@@ -22,13 +26,9 @@ const Dashboard: React.FC = () => {
   const [selectedRequest, setSelectedRequest] = useState<SignupRequestItem | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [detailsSearch, setDetailsSearch] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const toast = useToast();
 
-  const formatDate = (ts?: any): string => {
-    if (!ts) return '';
-    if (typeof ts === 'string') return new Date(ts).toLocaleString();
-    if (typeof ts?.seconds === 'number') return new Date(ts.seconds * 1000).toLocaleString();
-    return '';
-  };
 
   const isImage = (f?: { url?: string; contentType?: string }) => {
     const t = (f?.contentType || '').toLowerCase();
@@ -52,31 +52,10 @@ const Dashboard: React.FC = () => {
     return s;
   };
 
-  const extractName = (data: Record<string, any>): string => {
-    const entries = Object.entries(data || {});
-    const candidates = ['name', 'full_name', 'full name', 'first_name', 'first name'];
-    for (const key of candidates) {
-      const found = entries.find(([k]) => k.toLowerCase() === key);
-      if (found) return String(found[1] ?? '');
-    }
-    const fuzzy = entries.find(([k]) => /name/i.test(k));
-    if (fuzzy) return String(fuzzy[1] ?? '');
-    return '—';
-  };
 
-  const extractEmail = (data: Record<string, any>): string => {
-    const entries = Object.entries(data || {});
-    const candidates = ['email', 'e-mail', 'email_address', 'email address'];
-    for (const key of candidates) {
-      const found = entries.find(([k]) => k.toLowerCase() === key);
-      if (found) return String(found[1] ?? '');
-    }
-    const fuzzy = entries.find(([k]) => /email/i.test(k));
-    if (fuzzy) return String(fuzzy[1] ?? '');
-    return '';
-  };
+  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
 
-  const loadSignupRequests = async () => {
+  const loadStats = async () => {
     if (!context) {
       setLoading(false);
       setError('No context available');
@@ -85,27 +64,46 @@ const Dashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      const res = await fetch(`/api/signup-requests/stats?context=${encodeURIComponent(context)}`);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('API error:', res.status, errorText);
+        setError(`Failed to load stats: ${res.status}`);
+        return;
+      }
+      const json = await res.json();
+      if (json.error === false && json.data) {
+        setStats(json.data);
+      }
+    } catch (e: unknown) {
+      console.error('Failed to load stats:', e);
+      setError(e instanceof Error ? e.message : 'Failed to load stats');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSignupRequests = async () => {
+    if (!context) {
+      return;
+    }
+    try {
       const params = new URLSearchParams();
-      params.set('pageSize', '100'); // Get enough to calculate stats
+      params.set('pageSize', '5'); // Only load recent 5 for dashboard
       params.set('context', context);
       const res = await fetch(`/api/signup-requests?` + params.toString());
       if (!res.ok) {
         const errorText = await res.text();
         console.error('API error:', res.status, errorText);
-        setError(`Failed to load: ${res.status} ${errorText}`);
-        setAllRequests([]);
         return;
       }
       const json = await res.json();
-      const items: SignupRequestItem[] = json.items || [];
-      setAllRequests(items);
-    } catch (e: any) {
+      if (json.error === false && json.data) {
+        const items: SignupRequestItem[] = json.data.items || [];
+        setAllRequests(items);
+      }
+    } catch (e: unknown) {
       console.error('Failed to load signup requests:', e);
-      setError(e?.message || 'Failed to load signup requests');
-      // Set empty arrays on error to show empty state
-      setAllRequests([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -144,34 +142,45 @@ const Dashboard: React.FC = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ required_information: details }),
     });
-    alert('Info request email sent (if email configured).');
+    toast.showInfo('Info request email sent (if email configured).');
   };
 
   const remove = async (id: string) => {
     if (!context) return;
-    const ok = confirm('Delete this request? This action cannot be undone.');
-    if (!ok) return;
-    const res = await fetch(`/api/signup-requests?id=${encodeURIComponent(id)}&context=${encodeURIComponent(context)}`, {
-      method: 'DELETE',
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Request',
+      message: 'Are you sure you want to delete this request? This action cannot be undone.',
+      onConfirm: async () => {
+        await performDelete(id);
+      }
     });
-    if (res.ok) {
-    setSelectedRequest(null);
-      await loadSignupRequests();
+  };
+
+  const performDelete = async (id: string) => {
+    if (!context) return;
+    try {
+      const res = await fetch(`/api/signup-requests?id=${encodeURIComponent(id)}&context=${encodeURIComponent(context)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setSelectedRequest(null);
+        await loadSignupRequests();
+        toast.showSuccess('Request deleted successfully.');
+      } else {
+        const errorText = await res.text();
+        toast.showError('Failed to delete request: ' + errorText);
+      }
+    } catch (error: unknown) {
+      toast.showError('Failed to delete request: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
   useEffect(() => {
+    loadStats();
     loadSignupRequests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context]);
-
-
-  const stats = {
-    pending: allRequests.filter(r => r.status === 'pending').length,
-    approved: allRequests.filter(r => r.status === 'approved').length,
-    rejected: allRequests.filter(r => r.status === 'rejected').length,
-    total: allRequests.length
-  };
 
   return (
     <div className="space-y-6">
@@ -213,8 +222,8 @@ const Dashboard: React.FC = () => {
 
         <div className="bg-white p-6 rounded border border-gray-200">
           <div className="flex items-center justify-between mb-3">
-            <div className="w-12 h-12 bg-green-100 rounded flex items-center justify-center">
-              <Check className="w-6 h-6 text-green-600" />
+            <div className="w-12 h-12 bg-emerald-100 rounded flex items-center justify-center">
+              <Check className="w-6 h-6 text-emerald-600" />
             </div>
           </div>
           <div className="text-3xl font-bold text-gray-900 mb-1">{stats.approved}</div>
@@ -223,8 +232,8 @@ const Dashboard: React.FC = () => {
 
         <div className="bg-white p-6 rounded border border-gray-200">
           <div className="flex items-center justify-between mb-3">
-            <div className="w-12 h-12 bg-red-100 rounded flex items-center justify-center">
-              <X className="w-6 h-6 text-red-600" />
+            <div className="w-12 h-12 bg-rose-100 rounded flex items-center justify-center">
+              <X className="w-6 h-6 text-rose-600" />
             </div>
           </div>
           <div className="text-3xl font-bold text-gray-900 mb-1">{stats.rejected}</div>
@@ -294,14 +303,27 @@ const Dashboard: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                    Loading...
+                  <td colSpan={5} className="px-6 py-8 text-center">
+                    <LoadingSpinner size="md" text="Loading requests..." />
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-red-500">
-                    Error: {error}
+                  <td colSpan={5} className="px-6 py-8 text-center">
+                    <div className="text-red-600" role="alert">
+                      <p className="font-medium">Error loading data</p>
+                      <p className="text-sm text-gray-600 mt-1">{error}</p>
+                      <button
+                        onClick={() => {
+                          setError(null);
+                          loadStats();
+                          loadSignupRequests();
+                        }}
+                        className="mt-3 text-blue-600 hover:text-blue-700 text-sm underline"
+                      >
+                        Try again
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : allRequests.length === 0 ? (
@@ -318,12 +340,12 @@ const Dashboard: React.FC = () => {
                     <tr key={request.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{name}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{email}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{formatDate(request.submittedAt)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{formatDate(request.submittedAt) || formatDateLocal(request.submittedAt)}</td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                          request.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                          request.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                          'bg-rose-100 text-rose-700'
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                          request.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          request.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          'bg-rose-50 text-rose-700 border-rose-200'
                         }`}>
                           {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                         </span>
@@ -355,10 +377,10 @@ const Dashboard: React.FC = () => {
                   <p className="text-xs text-gray-500">ID: <span className="font-mono">{selectedRequest.id}</span></p>
               </div>
                 <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                  selectedRequest.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                  selectedRequest.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                  'bg-rose-100 text-rose-700'
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${
+                  selectedRequest.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                  selectedRequest.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                  'bg-rose-50 text-rose-700 border-rose-200'
                 }`}>
                   {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
                 </span>
@@ -370,7 +392,7 @@ const Dashboard: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                 <div className="p-4 rounded-xl border border-gray-100 bg-gray-50">
                   <div className="text-xs text-gray-500 mb-1">Submitted</div>
-                  <div className="text-sm font-medium text-gray-800">{formatDate(selectedRequest.submittedAt)}</div>
+                  <div className="text-sm font-medium text-gray-800">{formatDate(selectedRequest.submittedAt) || formatDateLocal(selectedRequest.submittedAt)}</div>
                 </div>
                 <div className="p-4 rounded-xl border border-gray-100 bg-gray-50 md:col-span-2">
                   <div className="flex items-center justify-between gap-3">
@@ -469,13 +491,13 @@ const Dashboard: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => approve(selectedRequest.id)}
-                  className="flex-1 bg-emerald-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+                  className="flex-1 bg-emerald-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors shadow-sm hover:shadow"
                 >
                   <span className="inline-flex items-center gap-2"><Check className="w-5 h-5" /> Approve</span>
                 </button>
               <button
                   onClick={() => reject(selectedRequest.id)}
-                  className="flex-1 bg-rose-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-rose-700 transition-colors"
+                  className="flex-1 bg-white text-rose-700 border-2 border-rose-300 px-4 py-3 rounded-lg font-medium hover:bg-rose-50 hover:border-rose-400 active:bg-rose-100 transition-colors shadow-sm hover:shadow"
               >
                   <span className="inline-flex items-center gap-2"><X className="w-5 h-5" /> Reject</span>
               </button>
@@ -503,6 +525,18 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={() => {
+          confirmDialog.onConfirm();
+          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+        }}
+        onCancel={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} })}
+      />
     </div>
   );
 };

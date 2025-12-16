@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Mail, Check, X, Send } from 'lucide-react';
 import { useSession } from '@/context/session';
+import { useToast } from '@/components/common/Toast';
 
 type TemplateKey = 'signup' | 'approval' | 'rejection' | 'moreInfo';
 
@@ -33,6 +34,7 @@ type Templates = Record<TemplateKey, Template>;
 
 const EmailTemplates: React.FC = () => {
   const { context } = useSession();
+  const toast = useToast();
   const [emailTemplates, setEmailTemplates] = useState<Templates>({
     signup: { 
       subject: 'Notification from {{platform_name}}: Your Signup Request Has Been Received', 
@@ -562,9 +564,9 @@ const EmailTemplates: React.FC = () => {
                         body: JSON.stringify({ to, key: selectedTemplate }),
                       });
                       if (!res.ok) throw new Error(await res.text());
-                      alert('Test email sent (if SMTP is configured). Check your inbox/spam.');
-                    } catch (e: any) {
-                      alert('Failed to send test: ' + (e?.message || 'Unknown error'));
+                      toast.showSuccess('Test email sent (if SMTP is configured). Check your inbox/spam.');
+                    } catch (e: unknown) {
+                      toast.showError('Failed to send test: ' + (e instanceof Error ? e.message : 'Unknown error'));
                     }
                   }}
                   className="px-6 py-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50"

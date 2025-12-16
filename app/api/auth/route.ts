@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { encodePayload, getBCAuth, setSession } from '../../../lib/auth';
+import { env } from '../../../lib/env';
+import { logger } from '../../../lib/logger';
 
 export async function GET (req: NextRequest, res: NextResponse) {
     try {
-        console.log('************************ Authenticating app on install ************************');
+        logger.info('Authenticating app on install');
         // Authenticate the app on install
         const { searchParams } = new URL(req.url);
 
@@ -13,18 +15,20 @@ export async function GET (req: NextRequest, res: NextResponse) {
         await setSession(session);
 
         // Once the app has been authorized, redirect
-        const baseUrl = process.env.BASE_URL || '';
+        const baseUrl = (env.BASE_URL || '').replace(/\/+$/, ''); // Remove trailing slashes
         const redirectUrl = `${baseUrl}/?context=${encodedContext}`;
 
-        console.log("redirecting to:", redirectUrl);
+        logger.info('Redirecting after authentication', { redirectUrl: redirectUrl.substring(0, 50) + '...' });
 
         return NextResponse.redirect(redirectUrl, 302);
-    } catch (error: any) {
-        const {message, response} = error;
+    } catch (error: unknown) {
+        logger.error('Authentication failed', error);
+        const message = error instanceof Error ? error.message : 'Something went wrong';
+        const status = (error as { response?: { status?: number } })?.response?.status || 500;
 
         return NextResponse.json(
-            { message: message || "Something went wrong" },
-            { status: response?.status || 500 }
+            { message },
+            { status }
         );
     }
 }
