@@ -71,7 +71,7 @@ export default function FormOperationProgressModal({
         }`}
       >
         {/* Header */}
-        <div className={`px-6 py-4 border-b border-slate-200 bg-gradient-to-r ${bgGradient}`}>
+        <div className={`px-6 py-4 border-b border-slate-200 bg-gradient-to-r ${bgGradient} rounded-t-xl`}>
           <div className="flex items-center gap-3">
             {isActivating ? (
               <Power className={`w-6 h-6 ${iconColor} animate-pulse`} />

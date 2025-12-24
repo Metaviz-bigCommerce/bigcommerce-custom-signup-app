@@ -33,8 +33,11 @@ export default function SaveFormDropdown({
     await onSaveAsNew(name);
   };
 
+  // Allow saving if form is dirty OR if it's a new form that hasn't been saved yet
+  const canSave = isDirty || (isNewForm && !isSaving);
+
   const handleButtonClick = () => {
-    if (!isSaving && isDirty) {
+    if (!isSaving && canSave) {
       setShowSaveModal(true);
     }
   };
@@ -44,13 +47,13 @@ export default function SaveFormDropdown({
       <div className="flex items-center gap-2">
         <button
           onClick={handleButtonClick}
-          disabled={!isDirty || isSaving}
+          disabled={!canSave || isSaving}
           className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
-            isDirty && !isSaving
+            canSave && !isSaving
               ? 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg active:scale-[0.98] shadow-md'
               : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
-          title={!isDirty ? 'No changes to save' : 'Save form'}
+          title={!canSave ? 'No changes to save' : 'Save form'}
         >
           {isSaving ? (
             <>

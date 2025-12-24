@@ -9,6 +9,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ActivationConfirmModal from './ActivationConfirmModal';
 import FormOperationProgressModal from './FormOperationProgressModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
+import ActivateConfirmModal from './ActivateConfirmModal';
+import DeactivateConfirmModal from './DeactivateConfirmModal';
 
 // Custom scrollbar styles for form preview
 const scrollbarStyles = `
@@ -313,6 +315,19 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
     isLoading: false,
     error: null,
   });
+  const [activateModal, setActivateModal] = useState<{ isOpen: boolean; versionId: string | null; formName: string | null; isLoading: boolean; error: string | null }>({
+    isOpen: false,
+    versionId: null,
+    formName: null,
+    isLoading: false,
+    error: null,
+  });
+  const [deactivateModal, setDeactivateModal] = useState<{ isOpen: boolean; formName: string | null; isLoading: boolean; error: string | null }>({
+    isOpen: false,
+    formName: null,
+    isLoading: false,
+    error: null,
+  });
   const toast = useToast();
 
   // Sort versions: active form first, then by updatedAt (newest first)
@@ -393,36 +408,53 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
     // Check if this version is already active
     if (version.isActive && isFormActive) {
       if (showConfirm) {
-        setConfirmDialog({
+        setDeactivateModal({
           isOpen: true,
-          title: 'Form Already Active',
-          message: `"${version.name || 'Unnamed'}" is already active. Do you want to deactivate it?`,
-          onConfirm: async () => {
-            await handleDeactivate();
-            setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
-          }
+          formName: version.name || null,
+          isLoading: false,
+          error: null,
         });
         return;
       }
     }
 
-    // Check if another form is currently active
-    const currentlyActiveVersion = versions.find((v: any) => v.isActive && v.id !== versionId);
-    if (currentlyActiveVersion && isFormActive && showConfirm) {
-      setConfirmDialog({
+    // Show activation confirmation modal
+    if (showConfirm) {
+      setActivateModal({
         isOpen: true,
-        title: 'Switch Active Form',
-        message: `"${currentlyActiveVersion.name || 'Unnamed'}" is currently active. Do you want to activate "${version.name || 'Unnamed'}" and deactivate "${currentlyActiveVersion.name || 'Unnamed'}"?`,
-        onConfirm: async () => {
-          await performActivation(versionId);
-          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
-        }
+        versionId,
+        formName: version.name || null,
+        isLoading: false,
+        error: null,
       });
       return;
     }
 
-    // Proceed with activation
+    // Proceed with activation (when called from confirmation)
     await performActivation(versionId);
+  };
+
+  const handleActivateConfirm = async () => {
+    if (!activateModal.versionId) return;
+
+    setActivateModal(prev => ({ ...prev, isLoading: true, error: null }));
+    
+    try {
+      await performActivation(activateModal.versionId);
+      setActivateModal({ isOpen: false, versionId: null, formName: null, isLoading: false, error: null });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setActivateModal(prev => ({ 
+        ...prev, 
+        isLoading: false, 
+        error: errorMessage 
+      }));
+    }
+  };
+
+  const handleActivateCancel = () => {
+    if (activateModal.isLoading) return; // Prevent closing during activation
+    setActivateModal({ isOpen: false, versionId: null, formName: null, isLoading: false, error: null });
   };
 
   const updateProgressStep = (stepId: string, status: 'pending' | 'in-progress' | 'completed' | 'error') => {
@@ -567,6 +599,54 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
   };
 
   const handleDeactivate = async () => {
+    // Guard against duplicate deactivation
+    if (deactivatingId !== null) {
+      console.warn('[Deactivation] Already deactivating, ignoring duplicate request');
+      return;
+    }
+
+    // Guard against deactivating when no form is active
+    if (!isFormActive) {
+      console.warn('[Deactivation] No form is currently active, nothing to deactivate');
+      toast.showWarning('No form is currently active.');
+      return;
+    }
+
+    // Find the active version name for display
+    const activeVersion = versions.find((v: any) => v.isActive && isFormActive);
+    const activeVersionName = activeVersion?.name || 'Current Form';
+
+    // Show confirmation modal
+    setDeactivateModal({
+      isOpen: true,
+      formName: activeVersionName,
+      isLoading: false,
+      error: null,
+    });
+  };
+
+  const handleDeactivateConfirm = async () => {
+    setDeactivateModal(prev => ({ ...prev, isLoading: true, error: null }));
+    
+    try {
+      await performDeactivation();
+      setDeactivateModal({ isOpen: false, formName: null, isLoading: false, error: null });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setDeactivateModal(prev => ({ 
+        ...prev, 
+        isLoading: false, 
+        error: errorMessage 
+      }));
+    }
+  };
+
+  const handleDeactivateCancel = () => {
+    if (deactivateModal.isLoading) return; // Prevent closing during deactivation
+    setDeactivateModal({ isOpen: false, formName: null, isLoading: false, error: null });
+  };
+
+  const performDeactivation = async () => {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/b3c94d70-e835-4b4f-8871-5704bb869a70',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VersionsList.tsx:347',message:'handleDeactivate entry',data:{scriptUuid,isFormActive,deactivatingId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
     // #endregion
@@ -750,10 +830,12 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
     try {
       await updateVersion(editingId, { name });
       await mutate();
+      toast.showSuccess('Form name updated successfully.');
       setEditingId(null);
       setEditName('');
     } catch (error: any) {
       toast.showError('Failed to update form name: ' + (error?.message || 'Unknown error'));
+      throw error; // Re-throw so modal can handle it
     }
   };
 
@@ -952,9 +1034,8 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                         e.stopPropagation();
                         handleDeactivate();
                       }}
-                      disabled={deactivatingId !== null}
+                      disabled={deactivatingId !== null || deactivateModal.isLoading}
                       className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer"
-                      title="Deactivate Form - Remove form from storefront"
                     >
                       {deactivatingId !== null ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -966,11 +1047,10 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleSetActive(version.id);
+                        handleSetActive(version.id, true);
                       }}
-                      disabled={activatingId === version.id}
+                      disabled={activatingId === version.id || activateModal.isLoading}
                       className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer"
-                      title="Activate Form - Set this form as the active form"
                     >
                       {activatingId === version.id ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -982,14 +1062,12 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                   <button
                     onClick={(e) => handleEdit(version, e)}
                     className="p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-                    title="Rename Form - Change the name of this form"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={(e) => handleDelete(version.id, e)}
                     className="p-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-                    title="Delete Form - Permanently remove this form"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -1058,9 +1136,8 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                     e.stopPropagation();
                     handleDeactivate();
                   }}
-                  disabled={deactivatingId !== null}
+                  disabled={deactivatingId !== null || deactivateModal.isLoading}
                   className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer"
-                  title="Deactivate Form - Remove form from storefront"
                 >
                   {deactivatingId !== null ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1072,11 +1149,10 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleSetActive(version.id);
+                    handleSetActive(version.id, true);
                   }}
-                  disabled={activatingId === version.id}
+                  disabled={activatingId === version.id || activateModal.isLoading}
                   className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer"
-                  title="Activate Form - Set this form as the active form"
                 >
                   {activatingId === version.id ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1088,14 +1164,12 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
               <button
                 onClick={(e) => handleEdit(version, e)}
                 className="p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-                title="Rename Version - Change the name of this version"
               >
                 <Pencil className="w-4 h-4" />
               </button>
               <button
                 onClick={(e) => handleDelete(version.id, e)}
                 className="p-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-                title="Delete Version - Permanently remove this version"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -1139,12 +1213,14 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                   placeholder="Search forms..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-16 py-3.5 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:bg-white/15 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300"
+                  className="w-full pl-12 pr-16 py-3.5 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:bg-white/15 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 cursor-text"
+                  title="Search forms - Press Cmd+K or Ctrl+K to focus"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
                     className="absolute right-4 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                    aria-label="Clear search"
                   >
                     <XCircle className="w-5 h-5" />
                   </button>
@@ -1156,24 +1232,22 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
             <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm p-1 rounded-xl border border-white/10">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2.5 rounded-lg transition-all duration-200 ${
+                className={`p-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
                   viewMode === 'grid'
                     ? 'bg-white/20 text-white shadow-lg shadow-white/10'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
-                title="Grid View - Display forms in a card grid layout"
                 aria-label="Grid view"
               >
                 <LayoutGrid className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2.5 rounded-lg transition-all duration-200 ${
+                className={`p-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
                   viewMode === 'list'
                     ? 'bg-white/20 text-white shadow-lg shadow-white/10'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
-                title="List View - Display forms in a compact list layout"
                 aria-label="List view"
               >
                 <ListChecks className="w-5 h-5" />
@@ -1222,7 +1296,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
             {!searchQuery && onNavigateToBuilder && (
               <button
                 onClick={onNavigateToBuilder}
-                className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all duration-200 text-sm font-semibold shadow-sm shadow-blue-500/20 hover:shadow-md hover:shadow-blue-500/30"
+                className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all duration-200 text-sm font-semibold shadow-sm shadow-blue-500/20 hover:shadow-md hover:shadow-blue-500/30 cursor-pointer"
               >
                 Go to Builder
               </button>
@@ -1272,7 +1346,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
             handleSetActive(activationModalVersion.id, true);
           }
         }}
-        onDeactivate={handleDeactivate}
+        onDeactivate={() => handleDeactivate()}
         onLoad={() => {
           if (activationModalVersion) {
             handleLoad(activationModalVersion);
@@ -1303,6 +1377,26 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
         error={deleteModal.error}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+
+      {/* Activate Confirmation Modal */}
+      <ActivateConfirmModal
+        isOpen={activateModal.isOpen}
+        formName={activateModal.formName || undefined}
+        isLoading={activateModal.isLoading}
+        error={activateModal.error}
+        onConfirm={handleActivateConfirm}
+        onCancel={handleActivateCancel}
+      />
+
+      {/* Deactivate Confirmation Modal */}
+      <DeactivateConfirmModal
+        isOpen={deactivateModal.isOpen}
+        formName={deactivateModal.formName || undefined}
+        isLoading={deactivateModal.isLoading}
+        error={deactivateModal.error}
+        onConfirm={handleDeactivateConfirm}
+        onCancel={handleDeactivateCancel}
       />
     </div>
   );

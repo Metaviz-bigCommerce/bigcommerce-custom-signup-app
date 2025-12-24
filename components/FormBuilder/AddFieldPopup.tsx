@@ -95,22 +95,22 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" onClick={handleCancel}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={handleCancel}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+        {/* Header - Enhanced with light gradient */}
+        <div className="sticky top-0 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-slate-200 px-6 py-5 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <FilePlus className="w-5 h-5 text-green-600" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/25">
+              <FilePlus className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">Add New Field</h3>
-              <p className="text-xs text-gray-500 capitalize">{localField.type} field</p>
+              <h3 className="text-lg font-semibold text-slate-800">Add New Field</h3>
+              <p className="text-xs text-slate-600 capitalize font-medium">{localField.type} field</p>
             </div>
           </div>
           <button
             onClick={handleCancel}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white/50 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white/80 rounded-lg transition-all duration-200 hover:scale-110"
           >
             <X className="w-5 h-5" />
           </button>
@@ -121,16 +121,16 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
             {/* Left Panel - Settings */}
             <div className="p-6 space-y-4 border-r border-slate-200">
               {/* Basic Settings */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('basic')}
-                  className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition-colors"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-indigo-50 flex items-center justify-between transition-all duration-200"
                 >
                   <div className="flex items-center gap-2">
-                    <Type className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-semibold text-gray-700">Basic Settings</span>
+                    <Type className="w-4 h-4 text-slate-600" />
+                    <span className="text-sm font-semibold text-slate-700">Basic Settings</span>
                   </div>
-                  {openSection === 'basic' ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                  {openSection === 'basic' ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
                 </button>
                 {openSection === 'basic' && (
                   <div className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
@@ -169,16 +169,16 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
               </div>
 
               {/* Label Styling */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('labelStyle')}
-                  className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition-colors"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-indigo-50 flex items-center justify-between transition-all duration-200"
                 >
                   <div className="flex items-center gap-2">
-                    <Type className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-semibold text-gray-700">Label Styling</span>
+                    <Type className="w-4 h-4 text-slate-600" />
+                    <span className="text-sm font-semibold text-slate-700">Label Styling</span>
                   </div>
-                  {openSection === 'labelStyle' ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                  {openSection === 'labelStyle' ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
                 </button>
                 {openSection === 'labelStyle' && (
                   <div className="p-4 space-y-5 animate-in slide-in-from-top-2 duration-200">
@@ -216,16 +216,16 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
               </div>
 
               {/* Input Styling */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('inputStyle')}
-                  className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition-colors"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-indigo-50 flex items-center justify-between transition-all duration-200"
                 >
                   <div className="flex items-center gap-2">
-                    <MousePointerClick className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-semibold text-gray-700">Input Styling</span>
+                    <MousePointerClick className="w-4 h-4 text-slate-600" />
+                    <span className="text-sm font-semibold text-slate-700">Input Styling</span>
                   </div>
-                  {openSection === 'inputStyle' ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                  {openSection === 'inputStyle' ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
                 </button>
                 {openSection === 'inputStyle' && (
                   <div className="p-4 space-y-5 animate-in slide-in-from-top-2 duration-200">
@@ -292,13 +292,18 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
             </div>
 
             {/* Right Panel - Live Preview */}
-            <div className="p-6 bg-gradient-to-br from-slate-50 to-gray-100">
+            <div className="p-6 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
               <div className="sticky top-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Eye className="w-4 h-4 text-gray-600" />
-                  <h4 className="text-sm font-semibold text-gray-700">Live Preview</h4>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-lg">
+                    <Eye className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-800">Live Preview</h4>
+                    <p className="text-xs text-slate-500">Real-time updates</p>
+                  </div>
                 </div>
-                <div className="bg-white rounded-lg shadow-lg p-6 border border-slate-200">
+                <div className="bg-white rounded-xl shadow-xl p-6 border border-slate-200">
                   <div className="space-y-3">
                     <label 
                       style={{ 
@@ -349,17 +354,17 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky bottom-0 bg-gradient-to-r from-white to-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between">
           <div className="flex gap-3 ml-auto">
             <button
               onClick={handleCancel}
-              className="px-5 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all"
+              className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-700 bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200"
             >
               Cancel
             </button>
             <button
               onClick={handleAdd}
-              className="px-5 py-2 rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transform hover:scale-105 transition-all duration-200"
             >
               Add Field
             </button>

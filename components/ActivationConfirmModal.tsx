@@ -28,9 +28,15 @@ export default function ActivationConfirmModal({
   const canDeactivate = isCurrentlyActive;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" 
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200" 
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between rounded-t-xl">
           <h3 className="text-lg font-semibold text-gray-800">Form Actions</h3>
           <button
             onClick={onClose}

@@ -66,22 +66,22 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
   const hasValidImageUrl = localTheme.layout === 'split' && localTheme.splitImageUrl && localTheme.splitImageUrl.trim().length > 0;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" onClick={handleClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={handleClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+        {/* Header - Enhanced with light gradient */}
+        <div className="sticky top-0 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-slate-200 px-6 py-5 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Palette className="w-5 h-5 text-purple-600" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/25">
+              <Palette className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">Edit Theme Settings</h3>
-              <p className="text-xs text-gray-500">Customize your form appearance</p>
+              <h3 className="text-lg font-semibold text-slate-800">Edit Theme Settings</h3>
+              <p className="text-xs text-slate-600 font-medium">Customize your form appearance</p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white/50 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white/80 rounded-lg transition-all duration-200 hover:scale-110"
           >
             <X className="w-5 h-5" />
           </button>
@@ -92,16 +92,16 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
             {/* Left Panel - Settings */}
             <div className="p-6 space-y-4 border-r border-slate-200">
               {/* Content Settings */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('content')}
-                  className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition-colors"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200"
                 >
                   <div className="flex items-center gap-2">
-                    <Type className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-semibold text-gray-700">Content</span>
+                    <Type className="w-4 h-4 text-slate-600" />
+                    <span className="text-sm font-semibold text-slate-700">Content</span>
                   </div>
-                  {openSection === 'content' ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                  {openSection === 'content' ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
                 </button>
                 {openSection === 'content' && (
                   <div key="content-section" className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
@@ -138,16 +138,16 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
               </div>
 
               {/* Layout Settings */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('layout')}
-                  className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition-colors"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200"
                 >
                   <div className="flex items-center gap-2">
-                    <Layout className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-semibold text-gray-700">Layout</span>
+                    <Layout className="w-4 h-4 text-slate-600" />
+                    <span className="text-sm font-semibold text-slate-700">Layout</span>
                   </div>
-                  {openSection === 'layout' ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                  {openSection === 'layout' ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
                 </button>
                 {openSection === 'layout' && (
                   <div key="layout-section" className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
@@ -194,16 +194,16 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
               </div>
 
               {/* Button Settings */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('button')}
-                  className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition-colors"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200"
                 >
                   <div className="flex items-center gap-2">
-                    <MousePointerClick className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-semibold text-gray-700">Submit Button</span>
+                    <MousePointerClick className="w-4 h-4 text-slate-600" />
+                    <span className="text-sm font-semibold text-slate-700">Submit Button</span>
                   </div>
-                  {openSection === 'button' ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                  {openSection === 'button' ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
                 </button>
                 {openSection === 'button' && (
                   <div key="button-section" className="p-4 space-y-5 animate-in slide-in-from-top-2 duration-200">
@@ -243,14 +243,19 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
             </div>
 
             {/* Right Panel - Live Preview */}
-            <div className="p-6 bg-gradient-to-br from-slate-50 to-gray-100">
+            <div className="p-6 bg-gradient-to-br from-slate-50 via-purple-50/30 to-pink-50/30">
               <div className="sticky top-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Eye className="w-4 h-4 text-gray-600" />
-                  <h4 className="text-sm font-semibold text-gray-700">Live Preview</h4>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-lg">
+                    <Eye className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-800">Live Preview</h4>
+                    <p className="text-xs text-slate-500">Real-time updates</p>
+                  </div>
                 </div>
                 <div 
-                  className="rounded-lg shadow-lg p-6 border border-slate-200"
+                  className="rounded-xl shadow-xl p-6 border border-slate-200"
                   style={{ backgroundColor: localTheme.formBackgroundColor || '#ffffff' }}
                 >
                   <div className="space-y-4">
@@ -301,9 +306,9 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky bottom-0 bg-gradient-to-r from-white to-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between">
           {hasChanges && (
-            <div className="flex items-center gap-2 text-sm text-amber-600">
+            <div className="flex items-center gap-2 text-sm text-amber-600 font-medium">
               <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
               <span>You have unsaved changes</span>
             </div>
@@ -311,17 +316,17 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
           <div className="flex gap-3 ml-auto">
             <button
               onClick={handleClose}
-              className="px-5 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all"
+              className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-700 bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={!hasChanges}
-              className={`px-5 py-2 rounded-lg text-sm font-medium text-white transition-all ${
+              className={`px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 ${
                 hasChanges 
-                  ? 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105' 
-                  : 'bg-gray-300 cursor-not-allowed'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:scale-105' 
+                  : 'bg-slate-300 cursor-not-allowed'
               }`}
             >
               Save Changes

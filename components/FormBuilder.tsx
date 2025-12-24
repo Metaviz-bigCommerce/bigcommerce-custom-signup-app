@@ -48,6 +48,7 @@ const FormBuilder: React.FC = () => {
   // Track last saved state for accurate dirty checking
   const [lastSavedState, setLastSavedState] = useState<{ fields: FormField[]; theme: any } | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState<boolean>(false);
+  const [hasInitializedForm, setHasInitializedForm] = useState<boolean>(false);
   const toast = useToast();
   const [theme, setTheme] = useState<any>(defaultTheme);
   const { addScript, updateScript, deleteScript } = useBcScriptsActions();
@@ -56,11 +57,16 @@ const FormBuilder: React.FC = () => {
   const { saveAsVersion, updateVersion } = useFormVersionActions();
   const { versions, mutate: mutateVersions } = useFormVersions();
 
-  // Determine if form is new (no saved form exists)
-  // Note: isEditing flag is now used to control save modal options instead of isNewForm
+  // Determine if form is new (no saved form exists or form hasn't been saved yet)
+  // A form is considered "new" if it has been initialized but hasn't been saved (lastSavedState is null)
   const isNewForm = useMemo(() => {
+    // If form has been initialized but not saved, it's a new form
+    if (hasInitializedForm && formFields.length > 0 && lastSavedState === null) {
+      return true;
+    }
+    // Otherwise, check if no saved form exists in DB
     return form === null && currentFormVersionId === null;
-  }, [form, currentFormVersionId]);
+  }, [form, currentFormVersionId, hasInitializedForm, formFields.length, lastSavedState]);
 
   // Initialize form fields when form data is loaded
   // NOTE: This should NOT run when we have a currentFormVersionId because loadVersionData
@@ -82,24 +88,49 @@ const FormBuilder: React.FC = () => {
       // Ensure the 4 core fields exist in any loaded form
       const loadedFields = ensureCoreFields((form.fields as any) || []);
       setFormFields(loadedFields);
+      setHasInitializedForm(true);
       // Update last saved state
-      const loadedTheme = normalizeThemeLayout({ ...defaultTheme, ...(form.theme as any) });
+      // Merge with defaultTheme, but don't include formBackgroundColor unless it was explicitly saved
+      const savedTheme = form.theme as any || {};
+      const mergedThemeForState = { 
+        ...defaultTheme, 
+        ...savedTheme
+      };
+      // Remove formBackgroundColor if it wasn't in the saved theme (user didn't set it)
+      if (!savedTheme.hasOwnProperty('formBackgroundColor')) {
+        delete mergedThemeForState.formBackgroundColor;
+      }
+      const loadedTheme = normalizeThemeLayout(mergedThemeForState);
       setLastSavedState({ fields: loadedFields, theme: loadedTheme });
       
       if (form?.theme) {
-        const loadedTheme = { ...defaultTheme, ...(form.theme as any) };
+        const savedThemeData = form.theme as any;
+        const mergedTheme = { 
+          ...defaultTheme, 
+          ...savedThemeData
+        };
+        // Remove formBackgroundColor if it wasn't in the saved theme
+        if (!savedThemeData.hasOwnProperty('formBackgroundColor')) {
+          delete mergedTheme.formBackgroundColor;
+        }
         // Normalize layout when loading from saved form
-        setTheme(normalizeThemeLayout(loadedTheme));
+        setTheme(normalizeThemeLayout(mergedTheme));
       }
     } else {
-      // Not editing - always show default state
-      const defaultFields = ensureCoreFields([]);
-      setFormFields(defaultFields);
-      setTheme(defaultTheme);
-      // Set last saved state to null (no saved form yet)
-      setLastSavedState(null);
+      // Not editing - show empty state if form hasn't been initialized
+      if (!hasInitializedForm) {
+        setFormFields([]);
+        setTheme(defaultTheme);
+        setLastSavedState(null);
+      } else {
+        // Form has been initialized, show default fields
+        const defaultFields = ensureCoreFields([]);
+        setFormFields(defaultFields);
+        setTheme(defaultTheme);
+        setLastSavedState(null);
+      }
     }
-  }, [form, isEditing, currentFormVersionId]);
+  }, [form, isEditing, currentFormVersionId, hasInitializedForm]);
 
   // Check if current form matches any saved version to get its name
   useEffect(() => {
@@ -170,8 +201,22 @@ const FormBuilder: React.FC = () => {
 
   const isDirty = useMemo(() => {
     try {
+      // If form hasn't been initialized yet (empty state), it's not dirty
+      if (!hasInitializedForm && formFields.length === 0) {
+        return false;
+      }
+
       // If no saved state exists, check if current state differs from defaults
       if (!lastSavedState) {
+        // If formFields is empty, it's not dirty (user hasn't created form yet)
+        if (formFields.length === 0) {
+          return false;
+        }
+        // If form has been initialized but not saved, it's considered dirty (saveable)
+        // This allows saving a new form even if it matches defaults
+        if (hasInitializedForm && formFields.length > 0) {
+          return true;
+        }
         const defaultFields = ensureCoreFields([]);
         const currentFieldsNormalized = normalizeFieldsForComparison(formFields);
         const defaultFieldsNormalized = normalizeFieldsForComparison(defaultFields);
@@ -191,13 +236,11 @@ const FormBuilder: React.FC = () => {
       // On error, assume dirty to be safe
       return true;
     }
-  }, [lastSavedState, formFields, theme]);
-
+  }, [lastSavedState, formFields, theme, hasInitializedForm]);
 
   const handleReset = () => {
-    // Clear all form fields
-    const defaultFields = ensureCoreFields([]);
-    setFormFields(defaultFields);
+    // Clear all form fields - reset to empty state
+    setFormFields([]);
     
     // Reset theme to defaults
     const defaultThemeCopy = { ...defaultTheme };
@@ -210,8 +253,9 @@ const FormBuilder: React.FC = () => {
     setCurrentFormName('Unnamed');
     setCurrentFormVersionId(null);
     
-    // Reset editing flag (creating new form)
+    // Reset editing flag and initialization flag
     setIsEditing(false);
+    setHasInitializedForm(false);
     
     // Close any open popups
     setShowFieldEditor(false);
@@ -292,6 +336,9 @@ const FormBuilder: React.FC = () => {
       setLastSavedState({ fields: withCore, theme: normalizedTheme });
       // When saving main form, check if it matches any version to update name
       await mutateStoreForm();
+      // Mark as editing since form is now saved
+      setIsEditing(true);
+      setHasInitializedForm(true);
       // The useEffect will automatically update the name if it matches a version
       toast.showSuccess('Form saved.');
     } catch (e: unknown) {
@@ -336,6 +383,8 @@ const FormBuilder: React.FC = () => {
       // Update last saved state
       setLastSavedState({ fields: withCore, theme: normalizedTheme });
       await mutateStoreForm();
+      setIsEditing(true);
+      setHasInitializedForm(true);
       
       // If a script exists, regenerate JS and update the script
       if (active && scriptUuid) {
@@ -394,6 +443,8 @@ const FormBuilder: React.FC = () => {
       // Update last saved state
       setLastSavedState({ fields: withCore, theme: normalizedTheme });
       await mutateStoreForm();
+      setIsEditing(true);
+      setHasInitializedForm(true);
       await mutateVersions();
       toast.showSuccess('Form saved as new.');
       
@@ -409,12 +460,13 @@ const FormBuilder: React.FC = () => {
 
   function handleDiscardChanges() {
     if (!lastSavedState) {
-      // If no saved state, reset to defaults
-      setFormFields(ensureCoreFields([]));
+      // If no saved state, reset to empty state
+      setFormFields([]);
       setTheme(defaultTheme);
       setCurrentFormName('Unnamed');
       setCurrentFormVersionId(null);
       setIsEditing(false);
+      setHasInitializedForm(false);
       toast.showSuccess('Changes discarded.');
       return;
     }
@@ -425,19 +477,21 @@ const FormBuilder: React.FC = () => {
   }
 
   function handleCreateNewForm() {
-    if (isDirty) {
+    if (isDirty && hasInitializedForm) {
       setConfirmDialog({
         isOpen: true,
         title: 'Create New Form',
         message: 'You have unsaved changes. These will be discarded if you create a new form. You can save your current form first, or discard changes to create a new form.',
         onConfirm: async () => {
           // Discard and create new
-          setFormFields(ensureCoreFields([]));
+          const defaultFields = ensureCoreFields([]);
+          setFormFields(defaultFields);
           setTheme(defaultTheme);
           setCurrentFormName('Unnamed');
           setCurrentFormVersionId(null);
           setLastSavedState(null);
           setIsEditing(false);
+          setHasInitializedForm(true);
           setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
           toast.showSuccess('New form created.');
         },
@@ -445,12 +499,14 @@ const FormBuilder: React.FC = () => {
       });
     } else {
       // No changes, just create new
-      setFormFields(ensureCoreFields([]));
+      const defaultFields = ensureCoreFields([]);
+      setFormFields(defaultFields);
       setTheme(defaultTheme);
       setCurrentFormName('Unnamed');
       setCurrentFormVersionId(null);
       setLastSavedState(null);
-      setIsEditing(false);
+      setIsEditing(false); // Set to false initially, will be set to true when user saves
+      setHasInitializedForm(true);
       toast.showSuccess('New form created.');
     }
     // Switch to Builder tab if not already there
@@ -480,9 +536,21 @@ const FormBuilder: React.FC = () => {
     
     const originalFields = version?.form?.fields || [];
     const loadedFields = originalFields.length > 0 ? ensureCoreFields(originalFields) : ensureCoreFields([]);
-    const loadedTheme = version?.form?.theme 
-      ? normalizeThemeLayout({ ...defaultTheme, ...version.form.theme })
-      : defaultTheme;
+    let loadedTheme;
+    if (version?.form?.theme) {
+      const savedThemeData = version.form.theme;
+      const mergedTheme = { 
+        ...defaultTheme, 
+        ...savedThemeData
+      };
+      // Remove formBackgroundColor if it wasn't in the saved theme (user didn't set it)
+      if (!savedThemeData.hasOwnProperty('formBackgroundColor')) {
+        delete mergedTheme.formBackgroundColor;
+      }
+      loadedTheme = normalizeThemeLayout(mergedTheme);
+    } else {
+      loadedTheme = defaultTheme;
+    }
     
     // Clear current form state and load new data
     setFormFields(loadedFields);
@@ -497,6 +565,9 @@ const FormBuilder: React.FC = () => {
     
     // Set isEditing flag: true if loading an existing form (has version ID), false if creating new
     setIsEditing(!!version?.id);
+    
+    // Mark form as initialized when loading a version
+    setHasInitializedForm(true);
     
     // Switch to Builder tab if requested
     if (goToBuilder) {
@@ -529,20 +600,38 @@ const FormBuilder: React.FC = () => {
   }
 
   function handleTabSwitch(newTab: number) {
-    if (isDirty && activeTab !== newTab) {
+    // Only show unsaved changes modal if form has been initialized and has changes
+    if (isDirty && hasInitializedForm && formFields.length > 0 && activeTab !== newTab) {
       setPendingTabSwitch(newTab);
       setShowUnsavedChangesModal(true);
     } else {
-      setActiveTab(newTab);
-      
-      // When switching to Builder tab and not editing, reset to default state
-      if (newTab === 1 && !isEditing) {
-        const defaultFields = ensureCoreFields([]);
-        setFormFields(defaultFields);
+      // When switching to Forms tab (tab 2), clear builder state
+      if (newTab === 2 && activeTab === 1) {
+        setFormFields([]);
         setTheme(defaultTheme);
         setLastSavedState(null);
         setCurrentFormName('Unnamed');
         setCurrentFormVersionId(null);
+        setHasInitializedForm(false);
+        setIsEditing(false);
+        setSelectedField(null);
+        // Close any open popups/editors
+        setShowFieldEditor(false);
+        setShowAddFieldEditor(false);
+        setPendingFieldType(null);
+        setShowThemeEditor(false);
+      }
+      
+      setActiveTab(newTab);
+      
+      // When switching to Builder tab and not editing, reset to empty state
+      if (newTab === 1 && !isEditing && !hasInitializedForm) {
+        setFormFields([]);
+        setTheme(defaultTheme);
+        setLastSavedState(null);
+        setCurrentFormName('Unnamed');
+        setCurrentFormVersionId(null);
+        setHasInitializedForm(false);
       }
     }
   }
@@ -584,6 +673,8 @@ const FormBuilder: React.FC = () => {
       setLastSavedState({ fields: withCore, theme: normalizedTheme });
       await mutateStoreForm();
       await mutateVersions();
+      setIsEditing(true);
+      setHasInitializedForm(true);
       toast.showSuccess('Form saved.');
       
       // Close SaveModal and switch to target tab
@@ -608,35 +699,55 @@ const FormBuilder: React.FC = () => {
     setPendingTabSwitch(null);
     setShowUnsavedChangesModal(false);
     
-    // Fully discard all unsaved changes and reset to clean state
-    if (!lastSavedState) {
-      // If no saved state, reset to defaults
-      setFormFields(ensureCoreFields([]));
+    // If switching to Forms tab (tab 2), clear builder state completely
+    if (targetTab === 2) {
+      setFormFields([]);
       setTheme(defaultTheme);
       setCurrentFormName('Unnamed');
       setCurrentFormVersionId(null);
       setLastSavedState(null);
       setIsEditing(false);
+      setHasInitializedForm(false);
+      setSelectedField(null);
+      // Close any open popups/editors
+      setShowFieldEditor(false);
+      setShowAddFieldEditor(false);
+      setPendingFieldType(null);
+      setShowThemeEditor(false);
     } else {
-      // Restore from last saved state only if we're editing
-      // Otherwise, reset to default state
-      if (isEditing) {
-        setFormFields([...lastSavedState.fields]);
-        setTheme({ ...lastSavedState.theme });
-      } else {
+      // Fully discard all unsaved changes and reset to clean state
+      if (!lastSavedState) {
+        // If no saved state, reset to defaults
         setFormFields(ensureCoreFields([]));
         setTheme(defaultTheme);
+        setCurrentFormName('Unnamed');
+        setCurrentFormVersionId(null);
         setLastSavedState(null);
+        setIsEditing(false);
+        setHasInitializedForm(false);
+      } else {
+        // Restore from last saved state only if we're editing
+        // Otherwise, reset to default state
+        if (isEditing) {
+          setFormFields([...lastSavedState.fields]);
+          setTheme({ ...lastSavedState.theme });
+        } else {
+          setFormFields(ensureCoreFields([]));
+          setTheme(defaultTheme);
+          setLastSavedState(null);
+          setHasInitializedForm(false);
+        }
       }
-    }
-    
-    // If switching to Builder tab and not editing, ensure default state
-    if (targetTab === 1 && !isEditing) {
-      setFormFields(ensureCoreFields([]));
-      setTheme(defaultTheme);
-      setLastSavedState(null);
-      setCurrentFormName('Unnamed');
-      setCurrentFormVersionId(null);
+      
+      // If switching to Builder tab and not editing, ensure default state
+      if (targetTab === 1 && !isEditing) {
+        setFormFields([]);
+        setTheme(defaultTheme);
+        setLastSavedState(null);
+        setHasInitializedForm(false);
+        setCurrentFormName('Unnamed');
+        setCurrentFormVersionId(null);
+      }
     }
     
     // Switch to target tab
@@ -953,15 +1064,17 @@ const FormBuilder: React.FC = () => {
         
         {/* Global Actions - Top Right */}
         <div className="flex items-center gap-3">
-          {/* New Form Button */}
-          <button
-            onClick={handleCreateNewForm}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm active:scale-[0.98]"
-            title="Create a new form"
-          >
-            <FilePlus className="w-4 h-4" />
-            <span>New Form</span>
-          </button>
+          {/* New Form Button - Only show in Forms tab, not Builder tab */}
+          {activeTab !== 1 && (
+            <button
+              onClick={handleCreateNewForm}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm active:scale-[0.98]"
+              title="Create a new form"
+            >
+              <FilePlus className="w-4 h-4" />
+              <span>New Form</span>
+            </button>
+          )}
 
           {/* Active Form Indicator */}
           <div 
@@ -986,15 +1099,15 @@ const FormBuilder: React.FC = () => {
             ) : (
               <>
                 <div className="w-2 h-2 rounded-full bg-slate-400" />
-                <span>No form is currently activated</span>
+                <span>No form is currently activate</span>
               </>
             )}
           </div>
         </div>
       </div>
 
-      {/* Top Action Bar - Only show in Builder tab */}
-      {activeTab === 1 && (
+      {/* Top Action Bar - Only show in Builder tab when form has fields */}
+      {activeTab === 1 && formFields.length > 0 && (
         <TopActionBar
           currentFormName={currentFormName}
           isEditingName={isEditingName}
@@ -1024,7 +1137,7 @@ const FormBuilder: React.FC = () => {
               confirmVariant: 'danger'
             });
           }}
-          isNewForm={!isEditing}
+          isNewForm={isNewForm}
           onSaveToExisting={handleSaveToExisting}
           onSaveAsNew={handleSaveAsNew}
         />
@@ -1055,6 +1168,8 @@ const FormBuilder: React.FC = () => {
             onDragEnd={handleDragEnd}
             onOpenThemeEditor={() => setShowThemeEditor(true)}
             onViewModeChange={setViewMode}
+            onCreateNewForm={handleCreateNewForm}
+            hasSavedForms={form !== null || (versions && versions.length > 0)}
                   />
                 ) : (
           <VersionsList
@@ -1176,7 +1291,7 @@ const FormBuilder: React.FC = () => {
         }}
         onSaveAsNew={handleSaveAsNewAndSwitchTab}
         currentFormName={currentFormName}
-        isNewForm={!isEditing}
+        isNewForm={isNewForm}
       />
 
       {/* Confirm Dialog */}

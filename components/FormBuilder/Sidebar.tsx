@@ -65,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside 
-      className={`bg-white rounded-xl shadow-md border border-slate-200 h-full overflow-hidden transition-all duration-300 ease-in-out relative ${
+      className={`bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 h-full overflow-hidden transition-all duration-500 ease-in-out relative ${
         isOpen 
           ? 'w-[25%] min-w-[280px] opacity-100' 
           : 'w-0 min-w-0 opacity-0 overflow-hidden border-0'
@@ -73,12 +73,20 @@ const Sidebar: React.FC<SidebarProps> = ({
     >
       {isOpen && (
         <>
-          {/* Sidebar Header with Toggle */}
-          <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10 backdrop-blur-sm bg-white/95">
-            <h3 className="text-lg font-semibold text-gray-800">Simple Form</h3>
+          {/* Sidebar Header with Toggle - Enhanced styling */}
+          <div className="sticky top-0 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10 backdrop-blur-sm bg-white/95">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <Columns className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800">Form Fields</h3>
+                <p className="text-xs text-slate-500">Drag to reorder</p>
+              </div>
+            </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all duration-200 hover:scale-110"
               aria-label="Hide sidebar"
               title="Hide sidebar"
             >
@@ -87,69 +95,72 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Sidebar Content */}
-          <div className="p-6 h-[calc(100%-73px)] overflow-y-auto">
+          <div className="p-6 h-[calc(100%-85px)] overflow-y-auto">
             <div className="mb-6">
-              <h4 className="text-xs font-semibold uppercase text-gray-500 mb-3">Add New Field</h4>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-5 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full" />
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-600">Add New Field</h4>
+              </div>
               <div className="space-y-3">
                 <div>
-                  <div className="text-[10px] uppercase text-gray-400 mb-1.5 font-medium">Basic Inputs</div>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="text-[10px] uppercase text-slate-500 mb-2 font-semibold tracking-wide">Basic Inputs</div>
+                  <div className="grid grid-cols-2 gap-2">
                     {['text', 'email', 'phone', 'number'].map(type => (
                       <button
                         key={type}
                         onClick={() => onAddField(type as FieldType)}
-                        className="text-xs bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-2 py-1.5 rounded-md border border-slate-200 hover:border-blue-300 transition-all capitalize"
+                        className="text-xs bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 text-slate-700 hover:text-blue-700 px-2.5 py-2 rounded-lg border border-slate-200 hover:border-blue-400 hover:shadow-sm transition-all duration-200 capitalize font-medium group"
                       >
-                        <Plus className="w-3 h-3 inline mr-1" />
+                        <Plus className="w-3 h-3 inline mr-1.5 group-hover:scale-110 transition-transform" />
                         {type}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase text-gray-400 mb-1.5 font-medium">Selection Fields</div>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="text-[10px] uppercase text-slate-500 mb-2 font-semibold tracking-wide">Selection Fields</div>
+                  <div className="grid grid-cols-2 gap-2">
                     {['textarea', 'select', 'radio', 'checkbox'].map(type => (
                       <button
                         key={type}
                         onClick={() => onAddField(type as FieldType)}
-                        className="text-xs bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-2 py-1.5 rounded-md border border-slate-200 hover:border-blue-300 transition-all capitalize"
+                        className="text-xs bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 text-slate-700 hover:text-blue-700 px-2.5 py-2 rounded-lg border border-slate-200 hover:border-blue-400 hover:shadow-sm transition-all duration-200 capitalize font-medium group"
                       >
-                        <Plus className="w-3 h-3 inline mr-1" />
+                        <Plus className="w-3 h-3 inline mr-1.5 group-hover:scale-110 transition-transform" />
                         {type}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase text-gray-400 mb-1.5 font-medium">Address Fields</div>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="text-[10px] uppercase text-slate-500 mb-2 font-semibold tracking-wide">Address Fields</div>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => onAddAddressField('country')}
-                      className="text-xs bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-2 py-1.5 rounded-md border border-slate-200 hover:border-blue-300 transition-all"
+                      className="text-xs bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 text-slate-700 hover:text-blue-700 px-2.5 py-2 rounded-lg border border-slate-200 hover:border-blue-400 hover:shadow-sm transition-all duration-200 font-medium group"
                     >
-                      <Plus className="w-3 h-3 inline mr-1" />
+                      <Plus className="w-3 h-3 inline mr-1.5 group-hover:scale-110 transition-transform" />
                       Country
                     </button>
                     <button
                       onClick={() => onAddAddressField('state')}
-                      className="text-xs bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-2 py-1.5 rounded-md border border-slate-200 hover:border-blue-300 transition-all"
+                      className="text-xs bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 text-slate-700 hover:text-blue-700 px-2.5 py-2 rounded-lg border border-slate-200 hover:border-blue-400 hover:shadow-sm transition-all duration-200 font-medium group"
                     >
-                      <Plus className="w-3 h-3 inline mr-1" />
+                      <Plus className="w-3 h-3 inline mr-1.5 group-hover:scale-110 transition-transform" />
                       State / Province
                     </button>
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase text-gray-400 mb-1.5 font-medium">Special Fields</div>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="text-[10px] uppercase text-slate-500 mb-2 font-semibold tracking-wide">Special Fields</div>
+                  <div className="grid grid-cols-2 gap-2">
                     {['date', 'file', 'url'].map(type => (
                       <button
                         key={type}
                         onClick={() => onAddField(type as FieldType)}
-                        className="text-xs bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-2 py-1.5 rounded-md border border-slate-200 hover:border-blue-300 transition-all capitalize"
+                        className="text-xs bg-white hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 text-slate-700 hover:text-blue-700 px-2.5 py-2 rounded-lg border border-slate-200 hover:border-blue-400 hover:shadow-sm transition-all duration-200 capitalize font-medium group"
                       >
-                        <Plus className="w-3 h-3 inline mr-1" />
+                        <Plus className="w-3 h-3 inline mr-1.5 group-hover:scale-110 transition-transform" />
                         {type}
                       </button>
                     ))}
@@ -161,7 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="mb-6">
               <button
                 onClick={onOpenThemeEditor}
-                className="w-full px-4 py-2 rounded-md text-sm font-medium text-gray-700 bg-white border border-slate-300 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02]"
               >
                 <Palette className="w-4 h-4" />
                 Edit Theme
@@ -169,7 +180,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <div className="border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">Form Fields</h3>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-5 bg-gradient-to-b from-indigo-600 to-purple-600 rounded-full" />
+                <h3 className="text-sm font-semibold text-slate-800">Form Fields</h3>
+              </div>
               <div className="space-y-3">
                 {fieldGroups.map((group) => {
                   const groupStartIndex = formFields.findIndex(f => f.id === group.fields[0].id);

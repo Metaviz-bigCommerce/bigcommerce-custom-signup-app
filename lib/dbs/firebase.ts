@@ -47,27 +47,17 @@ export async function setStore(session: SessionProps) {
   if (!publicStoreId) {
     publicStoreId = `pub_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
   }
-  const defaultForm = {
-    fields: [
-      { id: 1, type: 'text', label: 'Full Name', placeholder: 'Enter your name', required: true, labelColor: '#1f2937', labelSize: '14', labelWeight: '500', borderColor: '#d1d5db', borderWidth: '1', borderRadius: '6', bgColor: '#ffffff', padding: '10', fontSize: '14', textColor: '#1f2937' },
-      { id: 2, type: 'email', label: 'Email', placeholder: 'Enter your email', required: true, labelColor: '#1f2937', labelSize: '14', labelWeight: '500', borderColor: '#d1d5db', borderWidth: '1', borderRadius: '6', bgColor: '#ffffff', padding: '10', fontSize: '14', textColor: '#1f2937' },
-      { id: 3, type: 'phone', label: 'Phone', placeholder: 'Enter your phone', required: false, labelColor: '#1f2937', labelSize: '14', labelWeight: '500', borderColor: '#d1d5db', borderWidth: '1', borderRadius: '6', bgColor: '#ffffff', padding: '10', fontSize: '14', textColor: '#1f2937' }
-    ],
-    theme: {
-      title: 'Create your account',
-      subtitle: 'Please fill in the form to continue',
-      primaryColor: '#2563eb',
-      layout: 'split', // split | center
-      splitImageUrl: '',
-      buttonText: 'Create account',
-      buttonBg: '#2563eb',
-      buttonColor: '#ffffff',
-      buttonRadius: 10
-    }
-  };
-  const data = { accessToken, adminId: id, scope, signupForm: defaultForm, signupFormActive: false, publicStoreId };
- 
-  await setDoc(ref, data);
+  // Only set basic store info - do not create default signupForm
+  // Forms should only be created when user explicitly clicks "Create New Form" in the builder
+  const data: any = { accessToken, adminId: id, scope, publicStoreId };
+  
+  // If store doesn't exist, set basic fields. If it exists, merge to preserve signupForm
+  if (existing.exists()) {
+    await updateDoc(ref, { accessToken, adminId: id, scope, publicStoreId });
+  } else {
+    // New store - don't create signupForm, user must create it explicitly
+    await setDoc(ref, { ...data, signupFormActive: false });
+  }
 
   return ref.id;
 }
