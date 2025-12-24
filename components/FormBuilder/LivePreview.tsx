@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2, Eye } from 'lucide-react';
 import { FormField } from './types';
 import { normalizeThemeLayout } from './utils';
 
@@ -375,45 +375,60 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
           100% { transform: translateY(0); }
         }
       `}</style>
-      <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-        <div className="p-6 pb-4 border-b border-slate-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-700">Live Preview</h3>
-          <div className="flex items-center gap-3">
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
+        {/* Preview Header - Matching EmailTemplates style */}
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
+                <Eye className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-800">Live Preview</h3>
+                <p className="text-xs text-slate-500">Changes update in real-time</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-1 bg-slate-100 rounded-full p-1">
+                <button
+                  onClick={() => onViewModeChange('desktop')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    viewMode === 'desktop'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Desktop
+                </button>
+                <button
+                  onClick={() => onViewModeChange('mobile')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    viewMode === 'mobile'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Mobile
+                </button>
+              </div>
+              {/* Expand to Fullscreen Button */}
               <button
-                onClick={() => onViewModeChange('desktop')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                  viewMode === 'desktop'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
+                onClick={handleExpand}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-all duration-200 hover:border-blue-500 hover:text-blue-600 shadow-sm hover:shadow-md"
+                title="Expand to fullscreen"
+                aria-label="Expand preview to fullscreen"
               >
-                Desktop
-              </button>
-              <button
-                onClick={() => onViewModeChange('mobile')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                  viewMode === 'mobile'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                Mobile
+                <Maximize2 className="w-4 h-4" />
+                <span>Expand</span>
               </button>
             </div>
-            {/* Expand to Fullscreen Button */}
-            <button
-              onClick={handleExpand}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-all duration-200 hover:border-blue-500 hover:text-blue-600 shadow-sm hover:shadow-md"
-              title="Expand to fullscreen"
-              aria-label="Expand preview to fullscreen"
-            >
-              <Maximize2 className="w-4 h-4" />
-              <span>Expand</span>
-            </button>
           </div>
         </div>
+        
+        {/* Preview Content */}
+        <div className="bg-slate-100 p-4">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
         {viewMode === 'desktop' ? (
           <div 
             className="bg-gray-50" 
@@ -539,6 +554,8 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
             </div>
           </div>
         )}
+          </div>
+        </div>
       </div>
     </>
   );

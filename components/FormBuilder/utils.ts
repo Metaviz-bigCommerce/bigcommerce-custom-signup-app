@@ -14,6 +14,7 @@ export const defaultTheme: Theme = {
 };
 
 // Helper function to normalize theme layout - if split layout but no valid image URL, use center
+// Also removes formBackgroundColor if it matches the default value (to avoid saving default values)
 export const normalizeThemeLayout = (themeToNormalize: any): any => {
   const normalizedTheme = { ...themeToNormalize };
   if (normalizedTheme.layout === 'split') {
@@ -21,6 +22,10 @@ export const normalizeThemeLayout = (themeToNormalize: any): any => {
     if (!hasValidImageUrl) {
       normalizedTheme.layout = 'center';
     }
+  }
+  // Remove formBackgroundColor if it matches the default (user didn't explicitly set it)
+  if (normalizedTheme.formBackgroundColor === defaultTheme.formBackgroundColor) {
+    delete normalizedTheme.formBackgroundColor;
   }
   return normalizedTheme;
 };

@@ -1,9 +1,9 @@
 'use client'
 
 import React from 'react';
-import { Trash2, Loader2, XCircle, X } from 'lucide-react';
+import { PowerOff, Loader2, X } from 'lucide-react';
 
-interface DeleteConfirmModalProps {
+interface DeactivateConfirmModalProps {
   isOpen: boolean;
   formName?: string;
   isLoading?: boolean;
@@ -12,14 +12,14 @@ interface DeleteConfirmModalProps {
   onCancel: () => void;
 }
 
-export default function DeleteConfirmModal({
+export default function DeactivateConfirmModal({
   isOpen,
   formName,
   isLoading = false,
   error = null,
   onConfirm,
   onCancel,
-}: DeleteConfirmModalProps) {
+}: DeactivateConfirmModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -34,13 +34,13 @@ export default function DeleteConfirmModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-rose-50 to-red-50 rounded-t-xl">
+        <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-rose-50 to-orange-50 rounded-t-xl">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-rose-100 rounded-lg">
-              <Trash2 className="w-6 h-6 text-rose-600" />
+              <PowerOff className="w-6 h-6 text-rose-600" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-800">Delete Form</h3>
+              <h3 className="text-lg font-semibold text-gray-800">Deactivate Form</h3>
               {formName && (
                 <p className="text-sm text-gray-600 mt-0.5">{formName}</p>
               )}
@@ -63,7 +63,7 @@ export default function DeleteConfirmModal({
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-6">
               <Loader2 className="w-8 h-8 text-rose-600 animate-spin mb-4" />
-              <p className="text-sm text-gray-600">Deleting form...</p>
+              <p className="text-sm text-gray-600">Deactivating form...</p>
             </div>
           )}
 
@@ -71,7 +71,7 @@ export default function DeleteConfirmModal({
           {error && !isLoading && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-start gap-2">
-                <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-red-800">Error occurred</p>
                   <p className="text-xs text-red-700 mt-1">{error}</p>
@@ -84,7 +84,7 @@ export default function DeleteConfirmModal({
           {!isLoading && (
             <div className="mb-6">
               <p className="text-sm text-gray-600">
-                Are you sure you want to delete this form? This action cannot be undone.
+                Are you sure you want to deactivate this form? This will remove it from your storefront and customers will see the default BigCommerce signup form.
               </p>
             </div>
           )}
@@ -102,10 +102,10 @@ export default function DeleteConfirmModal({
               <button
                 onClick={onConfirm}
                 disabled={isLoading}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
               >
-                <Trash2 className="w-4 h-4" />
-                Delete
+                <PowerOff className="w-4 h-4" />
+                Deactivate
               </button>
             </div>
           )}
