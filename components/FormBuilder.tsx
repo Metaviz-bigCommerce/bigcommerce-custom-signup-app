@@ -105,6 +105,7 @@ const FormBuilder: React.FC = () => {
   const [showDiscardConfirm, setShowDiscardConfirm] = useState<boolean>(false);
   const [hasInitializedForm, setHasInitializedForm] = useState<boolean>(false);
   const restoredFromPreviewRef = useRef<boolean>(false);
+  const justSavedRef = useRef<boolean>(false); // Track when we've just saved to prevent loading stale form data
   const [isRestoring, setIsRestoring] = useState<boolean>(true); // Prevent flicker during restore
   const toast = useToast();
   const [theme, setTheme] = useState<any>(defaultTheme);
@@ -267,9 +268,38 @@ const FormBuilder: React.FC = () => {
       return; // Don't overwrite version data with store form data
     }
     
+    // Prevent loading form data during save operations or immediately after saving
+    // This prevents the flash of the active form when saving a new form
+    if (isSaving || justSavedRef.current) {
+      // Clear the justSavedRef after the effect has processed
+      if (justSavedRef.current) {
+        // Use setTimeout to clear the ref after React has finished processing this render cycle
+        setTimeout(() => {
+          justSavedRef.current = false;
+        }, 0);
+      }
+      return; // Skip loading during save or immediately after save
+    }
+    
     // Only load form data if we're editing an existing form
     // Otherwise, always show default state
     if (isEditing && form && form.fields && Array.isArray(form.fields) && form.fields.length > 0) {
+      // Compare form data with current editing context to prevent loading a different form
+      // This prevents the flash when saving a new form while another form is active
+      if (hasInitializedForm && formFields.length > 0 && lastSavedState) {
+        const formFieldsNormalized = normalizeFieldsForComparison(formFields);
+        const formDataFieldsNormalized = normalizeFieldsForComparison((form.fields as any) || []);
+        const formDataStr = JSON.stringify(formDataFieldsNormalized);
+        const currentDataStr = JSON.stringify(formFieldsNormalized);
+        
+        // If the form data doesn't match what we're currently editing, don't load it
+        // This prevents loading the active form when we're editing a different form
+        if (formDataStr !== currentDataStr) {
+          // The form data from store doesn't match what we're editing - skip loading
+          return;
+        }
+      }
+      
       // Ensure the 4 core fields exist in any loaded form
       const loadedFields = ensureCoreFields((form.fields as any) || []);
       setFormFields(loadedFields);
@@ -320,11 +350,11 @@ const FormBuilder: React.FC = () => {
         setLastSavedState(null);
       }
     }
-    // Note: restoredFromPreview is intentionally not in the dependency array
-    // It's set in a separate effect that runs once on mount, and we only check it
-    // at the start of this effect to skip loading if we restored from preview
+    // Note: restoredFromPreview and justSavedRef are intentionally not in the dependency array
+    // They're set in separate effects/functions, and we only check them
+    // at the start of this effect to skip loading if needed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, isEditing, currentFormVersionId, hasInitializedForm]);
+  }, [form, isEditing, currentFormVersionId, hasInitializedForm, isSaving]);
 
   // Check if current form matches any saved version to get its name
   // Skip this if we restored from preview (to preserve the restored name)
@@ -534,12 +564,19 @@ const FormBuilder: React.FC = () => {
       // Update last saved state
       setLastSavedState({ fields: withCore, theme: normalizedTheme });
       // When saving main form, check if it matches any version to update name
+      // Set justSavedRef before mutating to prevent loading stale form data
+      justSavedRef.current = true;
       await mutateStoreForm();
       // Mark as editing since form is now saved
       setIsEditing(true);
       setHasInitializedForm(true);
       // The useEffect will automatically update the name if it matches a version
       toast.showSuccess('Form saved.');
+      
+      // Clear builder state and switch to Forms tab immediately
+      // This ensures clean state when user navigates back to Builder
+      clearBuilderState();
+      updateTabAndUrl(1);
     } catch (e: unknown) {
       toast.showError(getUserFriendlyError(e, 'Unable to save the form. Please try again.'));
     } finally {
@@ -595,6 +632,8 @@ const FormBuilder: React.FC = () => {
       
       // Update last saved state
       setLastSavedState({ fields: withCore, theme: normalizedTheme });
+      // Set justSavedRef before mutating to prevent loading stale form data
+      justSavedRef.current = true;
       await mutateStoreForm();
       if (isNewForm) {
         await mutateVersions(); // Refresh versions list for new forms
@@ -658,6 +697,8 @@ const FormBuilder: React.FC = () => {
       
       // Update last saved state
       setLastSavedState({ fields: withCore, theme: normalizedTheme });
+      // Set justSavedRef before mutating to prevent loading stale form data
+      justSavedRef.current = true;
       await mutateStoreForm();
       setIsEditing(true);
       setHasInitializedForm(true);
@@ -943,6 +984,8 @@ const FormBuilder: React.FC = () => {
       
       // Update last saved state (this marks the form as no longer dirty)
       setLastSavedState({ fields: withCore, theme: normalizedTheme });
+      // Set justSavedRef before mutating to prevent loading stale form data
+      justSavedRef.current = true;
       await mutateStoreForm();
       if (isNewForm) {
         await mutateVersions(); // Refresh versions list for new forms
@@ -1016,6 +1059,8 @@ const FormBuilder: React.FC = () => {
       
       // Update last saved state
       setLastSavedState({ fields: withCore, theme: normalizedTheme });
+      // Set justSavedRef before mutating to prevent loading stale form data
+      justSavedRef.current = true;
       await mutateStoreForm();
       setIsEditing(true);
       setHasInitializedForm(true);
