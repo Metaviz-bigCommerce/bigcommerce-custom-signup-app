@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { CheckCircle2 } from 'lucide-react';
+import { getUserFriendlyError } from '@/lib/utils';
 
 interface CustomerGroup {
   id: number;
@@ -67,14 +68,19 @@ const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
       });
       if (!res.ok) {
         const txt = await res.text();
-        showToast.error(txt || 'Failed to approve and create customer');
+        // Keep modal open on failure and show error toast
+        showToast.error(getUserFriendlyError(txt, 'Unable to approve the request and create customer. Please try again.'));
         return;
       }
-      showToast.success('Request approved and customer created successfully.');
+      // Close modals first, then show success toast
       onApproved(requestId);
       onClose();
+      // Use setTimeout to ensure modals close before toast is shown
+      setTimeout(() => {
+        showToast.success('Request approved and customer created successfully.');
+      }, 100);
     } catch (error) {
-      showToast.error('Failed to approve: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      showToast.error(getUserFriendlyError(error, 'Unable to approve the request and create customer. Please try again.'));
     } finally {
       setApproving(false);
     }

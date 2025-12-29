@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Send } from 'lucide-react';
-import { isValidEmail } from '@/lib/utils';
+import { isValidEmail, getUserFriendlyError } from '@/lib/utils';
 
 export interface TestEmailModalProps {
   isOpen: boolean;
@@ -89,10 +89,10 @@ const TestEmailModal: React.FC<TestEmailModalProps> = ({
         onClose();
       } else {
         const errorText = await res.text();
-        showToast.showError('Failed to send test email: ' + errorText);
+        showToast.showError(getUserFriendlyError(errorText, 'Unable to send the test email. Please check your email configuration and try again.'));
       }
     } catch (error: unknown) {
-      showToast.showError('Failed to send test email: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      showToast.showError(getUserFriendlyError(error, 'Unable to send the test email. Please check your email configuration and try again.'));
     } finally {
       setSending(false);
     }

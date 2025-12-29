@@ -6,7 +6,8 @@ async function fetcher([url, encodedContext]: [string, string]) {
   const res = await fetch(`${url}?context=${encodedContext}`);
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`Failed to fetch: ${res.status}, ${errorText}`);
+    // Throw a clean error message (components will sanitize further if needed)
+    throw new Error(errorText || 'Unable to load data. Please refresh the page.');
   }
   const json = await res.json();
   
@@ -55,7 +56,8 @@ export function useBcScriptsActions() {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      throw new Error(`Failed to add script: ${res.status} ${await res.text()}`);
+      const errorText = await res.text();
+      throw new Error(errorText || 'Unable to add script. Please try again.');
     }
     console.log('addScript res:', res);
     return res.json();
@@ -71,7 +73,8 @@ export function useBcScriptsActions() {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      throw new Error(`Failed to add script: ${res.status} ${await res.text()}`);
+      const errorText = await res.text();
+      throw new Error(errorText || 'Unable to add script. Please try again.');
     }
     return res.json();
   };
@@ -93,7 +96,7 @@ export function useBcScriptsActions() {
     fetch('http://127.0.0.1:7242/ingest/b3c94d70-e835-4b4f-8871-5704bb869a70',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks.ts:87',message:'After fetch DELETE',data:{status:res.status,statusText:res.statusText,ok:res.ok,responseText:responseText.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,D,E'})}).catch(()=>{});
     // #endregion
     if (!res.ok) {
-      throw new Error(`Failed to delete script: ${res.status} ${responseText}`);
+      throw new Error(responseText || 'Unable to delete script. Please try again.');
     }
     // DELETE operations often return 204 No Content with empty body - this is success
     // For 204, responseText will be empty, and we should treat that as success
@@ -157,7 +160,10 @@ export function useStoreFormActions() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ form }),
     });
-    if (!res.ok) throw new Error(`Failed to save form: ${res.status} ${await res.text()}`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Unable to save form. Please try again.');
+    }
     return res.json();
   };
   const setActive = async (active: boolean) => {
@@ -167,7 +173,10 @@ export function useStoreFormActions() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: active ? 'activate' : 'deactivate' }),
     });
-    if (!res.ok) throw new Error(`Failed to set active: ${res.status} ${await res.text()}`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Unable to update form status. Please try again.');
+    }
     return res.json();
   };
   return { saveForm, setActive };
@@ -197,7 +206,10 @@ export function useFormVersionActions() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, type, form }),
     });
-    if (!res.ok) throw new Error(`Failed to save version: ${res.status} ${await res.text()}`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Unable to save version. Please try again.');
+    }
     const data = await res.json();
     return { ...data, id: data.id }; // Ensure id is returned
   };
@@ -206,7 +218,9 @@ export function useFormVersionActions() {
     if (!encodedContext) throw new Error("Missing BigCommerce session context");
     // Fetch all versions and find the one we need
     const versionsRes = await fetch(`/api/form-versions?context=${encodedContext}`);
-    if (!versionsRes.ok) throw new Error(`Failed to fetch versions: ${versionsRes.status}`);
+    if (!versionsRes.ok) {
+      throw new Error('Unable to load form versions. Please refresh the page.');
+    }
     const versionsData = await versionsRes.json();
     const version = versionsData.versions?.find((v: any) => v.id === versionId);
     if (!version) throw new Error('Version not found');
@@ -218,7 +232,10 @@ export function useFormVersionActions() {
     const res = await fetch(`/api/form-versions?context=${encodedContext}&versionId=${versionId}`, {
       method: 'DELETE',
     });
-    if (!res.ok) throw new Error(`Failed to delete version: ${res.status} ${await res.text()}`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Unable to delete version. Please try again.');
+    }
     return res.json();
   };
   
@@ -229,7 +246,10 @@ export function useFormVersionActions() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'setActive', versionId }),
     });
-    if (!res.ok) throw new Error(`Failed to set active version: ${res.status} ${await res.text()}`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Unable to activate version. Please try again.');
+    }
     return res.json();
   };
   
@@ -240,7 +260,10 @@ export function useFormVersionActions() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'update', versionId, ...updates }),
     });
-    if (!res.ok) throw new Error(`Failed to update version: ${res.status} ${await res.text()}`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Unable to update version. Please try again.');
+    }
     return res.json();
   };
 
@@ -251,7 +274,10 @@ export function useFormVersionActions() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'deactivateAll' }),
     });
-    if (!res.ok) throw new Error(`Failed to deactivate all versions: ${res.status} ${await res.text()}`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || 'Unable to deactivate versions. Please try again.');
+    }
     return res.json();
   };
   

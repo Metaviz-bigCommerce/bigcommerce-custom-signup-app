@@ -41,13 +41,13 @@ const TopActionBar: React.FC<TopActionBarProps> = ({
 }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-4">
-      <div className="px-6 py-4 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between relative">
+      <div className="px-6 py-4 flex flex-row items-center justify-between gap-4 relative">
         {/* Left Section - Status & Info */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0 flex-1">
           {/* Form Name */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             {isEditingName ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
                 <input
                   type="text"
                   value={editingName}
@@ -59,19 +59,19 @@ const TopActionBar: React.FC<TopActionBarProps> = ({
                       onCancelEditing();
                     }
                   }}
-                  className="px-3 py-1.5 text-lg font-semibold text-gray-800 border-2 border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1.5 text-sm sm:text-lg font-semibold text-gray-800 border-2 border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-0"
                   autoFocus
                 />
                 <button
                   onClick={onSaveName}
-                  className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                  className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors cursor-pointer flex-shrink-0"
                   title="Save name"
                 >
                   <Check className="w-4 h-4" />
                 </button>
                 <button
                   onClick={onCancelEditing}
-                  className="p-1.5 text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+                  className="p-1.5 text-gray-600 hover:bg-gray-50 rounded-md transition-colors cursor-pointer flex-shrink-0"
                   title="Cancel"
                 >
                   <X className="w-4 h-4" />
@@ -80,7 +80,7 @@ const TopActionBar: React.FC<TopActionBarProps> = ({
             ) : (
               <div className="flex items-center gap-2 group">
                 <h2 
-                  className="text-lg font-semibold text-gray-800 cursor-pointer hover:text-blue-600 transition-colors"
+                  className="text-sm sm:text-lg font-semibold text-gray-800 cursor-pointer hover:text-blue-600 transition-colors"
                   onClick={onStartEditing}
                   title="Click to edit name"
                 >
@@ -88,7 +88,7 @@ const TopActionBar: React.FC<TopActionBarProps> = ({
                 </h2>
                 <button
                   onClick={onStartEditing}
-                  className="p-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 rounded-md transition-all"
+                  className="p-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 rounded-md transition-all cursor-pointer flex-shrink-0"
                   title="Edit name"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -105,14 +105,14 @@ const TopActionBar: React.FC<TopActionBarProps> = ({
         </div>
 
         {/* Right Section - Actions */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {/* Secondary Actions - Icon Only */}
           <div className="flex items-center gap-2 border-r border-slate-200 pr-2">
             {/* Discard Button - Icon Only (only when dirty) */}
             {isDirty && (
               <button
                 onClick={onDiscard}
-                className="p-2 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-all duration-200 active:scale-[0.95]"
+                className="p-2 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-all duration-200 active:scale-[0.95] cursor-pointer"
                 title="Discard unsaved changes"
               >
                 <X className="w-5 h-5" />

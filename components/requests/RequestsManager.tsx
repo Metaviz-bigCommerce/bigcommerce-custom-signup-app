@@ -6,6 +6,7 @@ import { XCircle, Search } from 'lucide-react';
 import { useSession } from '@/context/session';
 import { useToast } from '@/components/common/Toast';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { getUserFriendlyError } from '@/lib/utils';
 import RequestDetailsModal, { RequestItem as ModalRequestItem } from '@/components/requests/RequestDetailsModal';
 import ApprovalDialog from '@/components/requests/ApprovalDialog';
 import RequestInfoModal from '@/components/requests/RequestInfoModal';
@@ -31,7 +32,7 @@ const RequestsManager: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'' | 'pending' | 'approved' | 'rejected'>(initialStatusFilter);
   const [searchFilter, setSearchFilter] = useState('');
   const [selected, setSelected] = useState<RequestItem | null>(null);
-  const pageSize = 10;
+  const pageSize = 12;
 
   // Approval dialog state
   const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
@@ -107,6 +108,8 @@ const RequestsManager: React.FC = () => {
     }
     setShowApproveDialog(false);
     setApproveTargetId(null);
+    // Close the RequestDetailsModal first, then toast will be shown by ApprovalDialog
+    setSelected(null);
   };
   const updateStatus = async (id: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     if (!context) return;
@@ -122,13 +125,20 @@ const RequestsManager: React.FC = () => {
         if (selected && selected.id === id) {
           setSelected({ ...selected, status: newStatus });
         }
-        toast.showSuccess(`Request status updated to ${newStatus}.`);
+        // Close modal first, then show success toast
+        setSelected(null);
+        // Use setTimeout to ensure modal closes before toast is shown
+        setTimeout(() => {
+          toast.showSuccess(`Request status updated to ${newStatus}.`);
+        }, 100);
       } else {
         const errorText = await res.text();
-        toast.showError('Failed to update status: ' + errorText);
+        // Keep modal open on failure and show error toast
+        toast.showError(getUserFriendlyError(errorText, 'Unable to update the request status. Please try again.'));
       }
     } catch (error: unknown) {
-      toast.showError('Failed to update status: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      // Keep modal open on failure and show error toast
+      toast.showError(getUserFriendlyError(error, 'Unable to update the request status. Please try again.'));
     } finally {
       setActionLoading(null);
     }
@@ -212,18 +222,24 @@ const RequestsManager: React.FC = () => {
         method: 'DELETE',
       });
       if (res.ok) {
+        // Close modal first, then show success toast
         setSelected(null);
         // Reload first page to reflect deletion quickly
         setAllItems([]);
         setNextCursor(null);
         await load(null, true);
-        toast.showSuccess('Request deleted successfully.');
+        // Use setTimeout to ensure modal closes before toast is shown
+        setTimeout(() => {
+          toast.showSuccess('Request deleted successfully.');
+        }, 100);
       } else {
         const errorText = await res.text();
-        toast.showError('Failed to delete request: ' + errorText);
+        // Keep modal open on failure and show error toast
+        toast.showError(getUserFriendlyError(errorText, 'Unable to delete the request. Please try again.'));
       }
     } catch (error: unknown) {
-      toast.showError('Failed to delete request: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      // Keep modal open on failure and show error toast
+      toast.showError(getUserFriendlyError(error, 'Unable to delete the request. Please try again.'));
     } finally {
       setActionLoading(null);
     }
@@ -348,6 +364,7 @@ const RequestsManager: React.FC = () => {
         emptyMessage={allItems.length === 0 ? 'No requests found' : 'No requests match your filters'}
         emptySubMessage={allItems.length === 0 ? 'When users submit your signup form, they\'ll appear here.' : 'Try adjusting your search or filter criteria.'}
         onViewRequest={(request) => setSelected(request as RequestItem)}
+        skeletonRows={12}
         footer={
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <div className="text-xs sm:text-sm text-slate-500">
@@ -416,6 +433,11 @@ const RequestsManager: React.FC = () => {
         onClose={() => {
           setShowRequestInfoModal(false);
           setRequestInfoTargetId(null);
+        }}
+        onSent={(id) => {
+          // Close RequestDetailsModal first when info request is successfully sent
+          // The toast is already shown by RequestInfoModal
+          setSelected(null);
         }}
         showToast={{
           success: (msg) => toast.showSuccess(msg),

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Minimize2, AlertCircle, ArrowRight } from 'lucide-react';
+import { Minimize2, AlertCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 import { FormField } from '@/components/FormBuilder/types';
 import { normalizeThemeLayout } from '@/components/FormBuilder/utils';
 
@@ -13,11 +13,12 @@ export default function PreviewPage() {
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [theme, setTheme] = useState<any>({});
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
-  const [sourceTab, setSourceTab] = useState<number>(1); // Default to builder tab (1)
+  const [sourceTab, setSourceTab] = useState<number>(2); // Default to builder tab (2)
   const [countryData, setCountryData] = useState<Array<{ countryName: string; countryShortCode: string; regions: Array<{ name: string; shortCode?: string }>;}>>([]);
   const [selectedCountryCode, setSelectedCountryCode] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [hasActiveForm, setHasActiveForm] = useState(false);
+  const [fromDashboard, setFromDashboard] = useState(false); // Track if we came from dashboard
 
   useEffect(() => {
     const loadActiveForm = async () => {
@@ -27,57 +28,87 @@ export default function PreviewPage() {
       }
 
       try {
-        // Always load the active form from API first
+        // Check if there's a flag indicating we should use sessionStorage (from builder)
+        // If sessionStorage exists and was recently set (within last few seconds), use it
+        // Otherwise, clear it and load from API (coming from dashboard)
+        const storedData = sessionStorage.getItem('previewFormData');
+        const shouldUseSessionStorage = storedData && (() => {
+          try {
+            const data = JSON.parse(storedData);
+            // Check if there's a timestamp indicating recent navigation from builder
+            // If timestamp exists and is recent (within 5 seconds), use sessionStorage
+            if (data.timestamp) {
+              const timeDiff = Date.now() - data.timestamp;
+              return timeDiff < 5000; // 5 seconds
+            }
+            // If no timestamp, assume it's old and should be cleared
+            return false;
+          } catch {
+            return false;
+          }
+        })();
+
+        if (shouldUseSessionStorage) {
+          // Coming from builder - use sessionStorage data
+          try {
+            const data = JSON.parse(storedData);
+            setFormFields(data.formFields || []);
+            setTheme(data.theme || {});
+            setViewMode(data.viewMode || 'desktop');
+            setSourceTab(data.sourceTab || 2);
+            setHasActiveForm(true);
+            setFromDashboard(false); // Coming from builder, show "Exit Fullscreen"
+            setLoading(false);
+            return;
+          } catch (e) {
+            console.error('Failed to parse sessionStorage data:', e);
+            // Clear invalid sessionStorage and continue to API
+            sessionStorage.removeItem('previewFormData');
+          }
+        } else {
+          // Coming from dashboard - clear old sessionStorage and load from API
+          if (storedData) {
+            sessionStorage.removeItem('previewFormData');
+          }
+        }
+
+        // Load active form from API (coming from dashboard)
         const res = await fetch(`/api/store-form?context=${encodeURIComponent(context)}`);
         if (!res.ok) {
           throw new Error('Failed to load form');
         }
         const json = await res.json();
+        
+        // Handle standardized API response format
         const formData = json.error === false && json.data ? json.data : json;
         
-        if (formData.active && formData.form) {
-          // Use the active form from API
-          setFormFields(formData.form.fields || []);
-          setTheme(formData.form.theme || {});
+        // Ensure formData has the expected structure
+        if (formData && formData.active && formData.form) {
+          // Use the active form from API (coming from dashboard)
+          const form = formData.form;
+          const fields = Array.isArray(form.fields) ? form.fields : [];
+          const themeData = form.theme && typeof form.theme === 'object' ? form.theme : {};
+          
+          // Only proceed if we have fields (empty form is still valid, but we need at least the structure)
+          setFormFields(fields);
+          
+          // Clean the theme object - ensure formBackgroundColor is only present if explicitly set and not default
+          const cleanedTheme = { ...themeData };
+          // If formBackgroundColor is white or matches default, remove it to ensure clean state
+          if (cleanedTheme.formBackgroundColor === '#ffffff' || cleanedTheme.formBackgroundColor === '#fff' || cleanedTheme.formBackgroundColor === 'white') {
+            delete cleanedTheme.formBackgroundColor;
+          }
+          setTheme(cleanedTheme);
           setViewMode('desktop');
           setHasActiveForm(true);
+          setFromDashboard(true); // Coming from dashboard, show "Go Back"
         } else {
-          // If no active form, try sessionStorage (for builder preview with unsaved changes)
-          const storedData = sessionStorage.getItem('previewFormData');
-          if (storedData) {
-            try {
-              const data = JSON.parse(storedData);
-              setFormFields(data.formFields || []);
-              setTheme(data.theme || {});
-              setViewMode(data.viewMode || 'desktop');
-              setSourceTab(data.sourceTab || 1);
-              setHasActiveForm(true);
-            } catch (e) {
-              console.error('Failed to parse sessionStorage data:', e);
-              setHasActiveForm(false);
-            }
-          } else {
-            setHasActiveForm(false);
-          }
+          // No active form or invalid structure
+          setHasActiveForm(false);
         }
       } catch (error) {
         console.error('Failed to load preview data:', error);
-        // Fallback to sessionStorage on error
-        try {
-          const storedData = sessionStorage.getItem('previewFormData');
-          if (storedData) {
-            const data = JSON.parse(storedData);
-            setFormFields(data.formFields || []);
-            setTheme(data.theme || {});
-            setViewMode(data.viewMode || 'desktop');
-            setSourceTab(data.sourceTab || 1);
-            setHasActiveForm(true);
-          } else {
-            setHasActiveForm(false);
-          }
-        } catch (e) {
-          setHasActiveForm(false);
-        }
+        setHasActiveForm(false);
       } finally {
         setLoading(false);
       }
@@ -113,7 +144,13 @@ export default function PreviewPage() {
     return () => { cancelled = true; };
   }, []);
 
+  // Normalize theme and ensure formBackgroundColor is properly handled
   const normalizedTheme = normalizeThemeLayout(theme);
+  // Double-check: if formBackgroundColor is white or default, explicitly remove it
+  if (normalizedTheme.formBackgroundColor === '#ffffff' || normalizedTheme.formBackgroundColor === '#fff' || normalizedTheme.formBackgroundColor === 'white') {
+    delete normalizedTheme.formBackgroundColor;
+  }
+  
   const hasValidImageUrl = normalizedTheme.splitImageUrl && normalizedTheme.splitImageUrl.trim().length > 0;
   const isSplitLayout = normalizedTheme.layout === 'split' && hasValidImageUrl;
   
@@ -127,15 +164,29 @@ export default function PreviewPage() {
   const subtitleColor = normalizedTheme.subtitleColor || pr;
   const subtitleFontSize = normalizedTheme.subtitleFontSize ?? 13;
   const subtitleFontWeight = normalizedTheme.subtitleFontWeight || '400';
+  
+  // Responsive font sizes for mobile
+  const isMobile = viewMode === 'mobile';
+  const responsiveTitleSize = isMobile ? Math.max(18, titleFontSize * 0.85) : titleFontSize;
+  const responsiveSubtitleSize = isMobile ? Math.max(12, subtitleFontSize * 0.9) : subtitleFontSize;
   const btnbg = (normalizedTheme.buttonBg && normalizedTheme.primaryColor && normalizedTheme.buttonBg !== normalizedTheme.primaryColor)
     ? normalizedTheme.buttonBg 
     : pr;
   const btnc = normalizedTheme.buttonColor || '#fff';
   const btnr = normalizedTheme.buttonRadius == null ? 10 : normalizedTheme.buttonRadius;
   const btnt = normalizedTheme.buttonText || 'Create account';
-  // Default to white background if formBackgroundColor is not set, matching LivePreview behavior
-  const formBg = normalizedTheme.formBackgroundColor || '#ffffff';
-  const pageBg = normalizedTheme.pageBackgroundColor || '#f9fafb';
+  
+  // CRITICAL: Only use formBackgroundColor if it exists as a property in the normalized theme object
+  // If it doesn't exist (was removed because it's white/default), ALWAYS use white
+  // This prevents using stale background colors from previous forms
+  const formBg = normalizedTheme.hasOwnProperty('formBackgroundColor') && normalizedTheme.formBackgroundColor
+    ? String(normalizedTheme.formBackgroundColor).trim()
+    : '#ffffff';
+  
+  // Same for page background
+  const pageBg = normalizedTheme.hasOwnProperty('pageBackgroundColor') && normalizedTheme.pageBackgroundColor
+    ? String(normalizedTheme.pageBackgroundColor).trim()
+    : '#f9fafb';
 
   const handleShrink = () => {
     // Store the current form state back to sessionStorage so it can be restored
@@ -177,15 +228,23 @@ export default function PreviewPage() {
         hasInitializedForm: additionalState.hasInitializedForm || false
       }));
       
-      // Always redirect to builder tab (tab 1) since preview is only accessible from builder
-      const contextParam = storedContext ? `?context=${storedContext}` : '';
-      router.push(`/builder${contextParam}`);
+      // Always redirect to builder tab (tab 2) since preview is only accessible from builder
+      const params = new URLSearchParams();
+      if (storedContext) {
+        params.set('context', storedContext);
+      }
+      params.set('tab', '2');
+      router.push(`/builder?${params.toString()}`);
     } catch (error) {
       console.error('Failed to store return data:', error);
       // Fallback to builder if storage fails
       const fallbackContext = context || '';
-      const contextParam = fallbackContext ? `?context=${fallbackContext}` : '';
-      router.push(`/builder${contextParam}`);
+      const params = new URLSearchParams();
+      if (fallbackContext) {
+        params.set('context', fallbackContext);
+      }
+      params.set('tab', '2');
+      router.push(`/builder?${params.toString()}`);
     }
   };
 
@@ -198,6 +257,15 @@ export default function PreviewPage() {
     const fontSize = field.fontSize || '14';
     const textColor = field.textColor || '#0f172a';
     
+    // Responsive sizing for mobile
+    const isMobile = viewMode === 'mobile';
+    const fontSizeNum = typeof fontSize === 'string' ? parseInt(fontSize) : fontSize;
+    const paddingNum = typeof padding === 'string' ? parseInt(padding) : padding;
+    const labelSizeNum = field.labelSize ? (typeof field.labelSize === 'string' ? parseInt(field.labelSize) : field.labelSize) : 14;
+    const responsiveFontSize = isMobile ? Math.max(14, fontSizeNum * 0.95) : fontSizeNum;
+    const responsiveLabelSize = isMobile && field.labelSize ? Math.max(13, labelSizeNum * 0.9) : (field.labelSize || 14);
+    const responsivePadding = isMobile ? Math.max(10, paddingNum * 0.85) : paddingNum;
+    
     // For checkbox, hide label if empty
     const showLabel = field.type !== 'checkbox' || field.label?.trim();
     // For checkbox without label, use first option label as heading
@@ -206,18 +274,20 @@ export default function PreviewPage() {
       : field.label;
     
     return (
-      <div key={field.id}>
+      <div key={field.id} style={{ width: '100%', boxSizing: 'border-box' }}>
         {showLabel && (
           <label 
             style={{ 
               color: field.labelColor,
-              fontSize: field.labelSize + 'px',
+              fontSize: responsiveLabelSize + 'px',
               fontWeight: field.labelWeight,
               display: 'block',
-              marginBottom: '6px'
+              marginBottom: '6px',
+              cursor: 'pointer',
+              lineHeight: '1.4'
             }}
           >
-            {checkboxLabel}{field.required ? ' *' : ''}
+            {checkboxLabel}{field.required ? <span style={{ color: 'red' }}> *</span> : ''}
           </label>
         )}
         
@@ -232,15 +302,16 @@ export default function PreviewPage() {
                 borderStyle: 'solid',
                 borderRadius: borderRadius + 'px',
                 backgroundColor: bgColor,
-                padding: padding + 'px',
-                paddingRight: (parseInt(padding) || 12) + 30 + 'px',
-                fontSize: fontSize + 'px',
+                padding: responsivePadding + 'px',
+                paddingRight: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 30 + 'px',
+                fontSize: responsiveFontSize + 'px',
                 color: textColor,
                 width: '100%',
                 outline: 'none',
                 appearance: 'none',
                 WebkitAppearance: 'none',
-                MozAppearance: 'none'
+                MozAppearance: 'none',
+                boxSizing: 'border-box'
               }}
               aria-label={field.label}
             >
@@ -252,12 +323,12 @@ export default function PreviewPage() {
             <svg
               style={{
                 position: 'absolute',
-                right: (parseInt(padding) || 12) + 8 + 'px',
+                right: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 8 + 'px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 pointerEvents: 'none',
-                width: '16px',
-                height: '16px'
+                width: isMobile ? '14px' : '16px',
+                height: isMobile ? '14px' : '16px'
               }}
               viewBox="0 0 24 24"
               fill="none"
@@ -282,15 +353,16 @@ export default function PreviewPage() {
                   borderStyle: 'solid',
                   borderRadius: borderRadius + 'px',
                   backgroundColor: bgColor,
-                  padding: padding + 'px',
-                  paddingRight: (parseInt(padding) || 12) + 30 + 'px',
-                  fontSize: fontSize + 'px',
+                  padding: responsivePadding + 'px',
+                  paddingRight: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 30 + 'px',
+                  fontSize: responsiveFontSize + 'px',
                   color: textColor,
                   width: '100%',
                   outline: 'none',
                   appearance: 'none',
                   WebkitAppearance: 'none',
-                  MozAppearance: 'none'
+                  MozAppearance: 'none',
+                  boxSizing: 'border-box'
                 }}
                 aria-label={field.label}
               >
@@ -302,12 +374,12 @@ export default function PreviewPage() {
               <svg
                 style={{
                   position: 'absolute',
-                  right: (parseInt(padding) || 12) + 8 + 'px',
+                  right: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 8 + 'px',
                   top: '50%',
                   transform: 'translateY(-50%)',
                   pointerEvents: 'none',
-                  width: '16px',
-                  height: '16px'
+                  width: isMobile ? '14px' : '16px',
+                  height: isMobile ? '14px' : '16px'
                 }}
                 viewBox="0 0 24 24"
                 fill="none"
@@ -332,11 +404,12 @@ export default function PreviewPage() {
                 borderStyle: 'solid',
                 borderRadius: borderRadius + 'px',
                 backgroundColor: bgColor,
-                padding: padding + 'px',
-                fontSize: fontSize + 'px',
+                padding: responsivePadding + 'px',
+                fontSize: responsiveFontSize + 'px',
                 color: textColor,
                 width: '100%',
-                outline: 'none'
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
               aria-label={field.label}
               disabled={!selectedCountryCode}
@@ -352,16 +425,18 @@ export default function PreviewPage() {
               borderStyle: 'solid',
               borderRadius: borderRadius + 'px',
               backgroundColor: bgColor,
-              padding: padding + 'px',
-              fontSize: fontSize + 'px',
+              padding: responsivePadding + 'px',
+              fontSize: responsiveFontSize + 'px',
               color: textColor,
               width: '100%',
-              outline: 'none'
+              outline: 'none',
+              boxSizing: 'border-box',
+              resize: 'vertical'
             }}
             aria-label={field.label}
           />
         ) : field.type === 'select' ? (
-          <div style={{ position: 'relative', width: '100%' }}>
+          <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
             <select
               style={{
                 borderColor: borderColor,
@@ -369,15 +444,16 @@ export default function PreviewPage() {
                 borderStyle: 'solid',
                 borderRadius: borderRadius + 'px',
                 backgroundColor: bgColor,
-                padding: padding + 'px',
-                paddingRight: (parseInt(padding) || 12) + 30 + 'px',
-                fontSize: fontSize + 'px',
+                padding: responsivePadding + 'px',
+                paddingRight: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 30 + 'px',
+                fontSize: responsiveFontSize + 'px',
                 color: textColor,
                 width: '100%',
                 outline: 'none',
                 appearance: 'none',
                 WebkitAppearance: 'none',
-                MozAppearance: 'none'
+                MozAppearance: 'none',
+                boxSizing: 'border-box'
               }}
               aria-label={field.label}
             >
@@ -389,12 +465,12 @@ export default function PreviewPage() {
             <svg
               style={{
                 position: 'absolute',
-                right: (parseInt(padding) || 12) + 8 + 'px',
+                right: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 8 + 'px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 pointerEvents: 'none',
-                width: '16px',
-                height: '16px'
+                width: isMobile ? '14px' : '16px',
+                height: isMobile ? '14px' : '16px'
               }}
               viewBox="0 0 24 24"
               fill="none"
@@ -418,13 +494,14 @@ export default function PreviewPage() {
                   name={`radio-${field.id}`}
                   value={opt.value}
                   style={{
-                    width: '18px',
-                    height: '18px',
-                    cursor: 'pointer'
+                    width: isMobile ? '16px' : '18px',
+                    height: isMobile ? '16px' : '18px',
+                    cursor: 'pointer',
+                    flexShrink: 0
                   }}
                   className="radio-custom"
                 />
-                <span style={{ fontSize: fontSize + 'px', color: textColor }}>
+                <span style={{ fontSize: responsiveFontSize + 'px', color: textColor, lineHeight: '1.4' }}>
                   {opt.label}
                 </span>
               </label>
@@ -439,13 +516,14 @@ export default function PreviewPage() {
                     type="checkbox"
                     value={opt.value}
                     style={{
-                      width: '18px',
-                      height: '18px',
-                      cursor: 'pointer'
+                      width: isMobile ? '16px' : '18px',
+                      height: isMobile ? '16px' : '18px',
+                      cursor: 'pointer',
+                      flexShrink: 0
                     }}
                     className="checkbox-custom"
                   />
-                  <span style={{ fontSize: fontSize + 'px', color: textColor }}>
+                  <span style={{ fontSize: responsiveFontSize + 'px', color: textColor, lineHeight: '1.4' }}>
                     {opt.label}
                   </span>
                 </label>
@@ -456,13 +534,14 @@ export default function PreviewPage() {
                   <input
                     type="checkbox"
                     style={{
-                      width: '18px',
-                      height: '18px',
-                      cursor: 'pointer'
+                      width: isMobile ? '16px' : '18px',
+                      height: isMobile ? '16px' : '18px',
+                      cursor: 'pointer',
+                      flexShrink: 0
                     }}
                     className="checkbox-custom"
                   />
-                  <span style={{ fontSize: fontSize + 'px', color: textColor }}>
+                  <span style={{ fontSize: responsiveFontSize + 'px', color: textColor, lineHeight: '1.4' }}>
                     {field.label}
                   </span>
                 </label>
@@ -478,11 +557,12 @@ export default function PreviewPage() {
               borderStyle: 'solid',
               borderRadius: borderRadius + 'px',
               backgroundColor: bgColor,
-              padding: padding + 'px',
-              fontSize: fontSize + 'px',
+              padding: responsivePadding + 'px',
+              fontSize: responsiveFontSize + 'px',
               color: textColor,
               width: '100%',
-              outline: 'none'
+              outline: 'none',
+              boxSizing: 'border-box'
             }}
             aria-label={field.label}
           />
@@ -503,11 +583,12 @@ export default function PreviewPage() {
               borderStyle: 'solid',
               borderRadius: borderRadius + 'px',
               backgroundColor: bgColor,
-              padding: padding + 'px',
-              fontSize: fontSize + 'px',
+              padding: responsivePadding + 'px',
+              fontSize: responsiveFontSize + 'px',
               color: textColor,
               width: '100%',
-              outline: 'none'
+              outline: 'none',
+              boxSizing: 'border-box'
             }}
             aria-label={field.label}
           />
@@ -570,8 +651,12 @@ export default function PreviewPage() {
             </p>
             <button
               onClick={() => {
-                const contextParam = context ? `?context=${context}` : '';
-                router.push(`/builder${contextParam}`);
+                const params = new URLSearchParams();
+                if (context) {
+                  params.set('context', context);
+                }
+                params.set('tab', '2');
+                router.push(`/builder?${params.toString()}`);
               }}
               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
             >
@@ -655,16 +740,31 @@ export default function PreviewPage() {
         }
       `}</style>
       
-      {/* Floating Shrink Button */}
-      <button
-        onClick={handleShrink}
-        className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gray-900/90 hover:bg-gray-800 backdrop-blur-sm border border-gray-700/50 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
-        title="Exit fullscreen"
-        aria-label="Exit fullscreen preview"
-      >
-        <Minimize2 className="w-4 h-4" />
-        <span>Exit Fullscreen</span>
-      </button>
+      {/* Floating Back/Exit Button */}
+      {fromDashboard ? (
+        <button
+          onClick={() => {
+            const contextParam = context ? `?context=${context}` : '';
+            router.push(`/dashboard${contextParam}`);
+          }}
+          className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gray-900/90 hover:bg-gray-800 backdrop-blur-sm border border-gray-700/50 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+          title="Go back to dashboard"
+          aria-label="Go back to dashboard"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Go Back</span>
+        </button>
+      ) : (
+        <button
+          onClick={handleShrink}
+          className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gray-900/90 hover:bg-gray-800 backdrop-blur-sm border border-gray-700/50 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+          title="Exit fullscreen"
+          aria-label="Exit fullscreen preview"
+        >
+          <Minimize2 className="w-4 h-4" />
+          <span>Exit Fullscreen</span>
+        </button>
+      )}
 
       {/* Fullscreen Form Preview */}
       <div 
@@ -731,21 +831,22 @@ export default function PreviewPage() {
               <div 
                 style={{
                   width: '100%',
-                  maxWidth: '520px',
+                  maxWidth: '680px',
                   background: formBg,
-                  backdropFilter: 'saturate(180%) blur(8px)',
                   border: '1px solid #e5e7eb',
                   borderRadius: '16px',
                   boxShadow: '0 20px 30px -15px rgba(0,0,0,.2)',
-                  padding: '28px'
+                  padding: '28px',
+                  boxSizing: 'border-box'
                 }}
               >
                 <h1 
                   style={{
-                    fontSize: titleFontSize + 'px',
+                    fontSize: responsiveTitleSize + 'px',
                     fontWeight: titleFontWeight,
                     color: titleColor,
-                    margin: '0 0 6px 0'
+                    margin: '0 0 6px 0',
+                    lineHeight: '1.3'
                   }}
                 >
                   {ttl}
@@ -753,10 +854,11 @@ export default function PreviewPage() {
                 
                 <p 
                   style={{
-                    fontSize: subtitleFontSize + 'px',
+                    fontSize: responsiveSubtitleSize + 'px',
                     fontWeight: subtitleFontWeight,
                     color: subtitleColor,
-                    margin: '0 0 18px 0'
+                    margin: '0 0 18px 0',
+                    lineHeight: '1.4'
                   }}
                 >
                   {sub}
@@ -838,25 +940,26 @@ export default function PreviewPage() {
                 minHeight: '100vh'
               }}
             >
-              <div 
-                style={{
-                  width: '100%',
-                  maxWidth: '520px',
-                  background: formBg,
-                  backdropFilter: 'saturate(180%) blur(8px)',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '16px',
-                  boxShadow: '0 20px 30px -15px rgba(0,0,0,.2)',
-                  padding: '28px',
-                  marginTop: '8px'
-                }}
-              >
+                <div 
+                  style={{
+                    width: '100%',
+                    maxWidth: '520px',
+                    background: formBg,
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '16px',
+                    boxShadow: '0 20px 30px -15px rgba(0,0,0,.2)',
+                    padding: '16px',
+                    marginTop: '8px',
+                    boxSizing: 'border-box'
+                  }}
+                >
                 <h1 
                   style={{
-                    fontSize: titleFontSize + 'px',
+                    fontSize: responsiveTitleSize + 'px',
                     fontWeight: titleFontWeight,
                     color: titleColor,
-                    margin: '0 0 6px 0'
+                    margin: '0 0 6px 0',
+                    lineHeight: '1.3'
                   }}
                 >
                   {ttl}
@@ -864,10 +967,11 @@ export default function PreviewPage() {
                 
                 <p 
                   style={{
-                    fontSize: subtitleFontSize + 'px',
+                    fontSize: responsiveSubtitleSize + 'px',
                     fontWeight: subtitleFontWeight,
                     color: subtitleColor,
-                    margin: '0 0 18px 0'
+                    margin: '0 0 18px 0',
+                    lineHeight: '1.4'
                   }}
                 >
                   {sub}

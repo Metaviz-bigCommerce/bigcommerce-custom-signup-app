@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Mail } from 'lucide-react';
+import { getUserFriendlyError } from '@/lib/utils';
 
 export interface RequestInfoModalProps {
   isOpen: boolean;
@@ -52,16 +53,21 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
       );
       
       if (res.ok) {
-        showToast.success('Info request email sent (if email configured).');
+        // Close modals first, then show success toast
         setRequestInfoText('');
         onSent?.(requestId);
         onClose();
+        // Use setTimeout to ensure modals close before toast is shown
+        setTimeout(() => {
+          showToast.success('Info request email sent (if email configured).');
+        }, 100);
       } else {
         const errorText = await res.text();
-        showToast.error('Failed to send info request: ' + errorText);
+        // Keep modal open on failure and show error toast
+        showToast.error(getUserFriendlyError(errorText, 'Unable to send the information request. Please try again.'));
       }
     } catch (error: unknown) {
-      showToast.error('Failed to send info request: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      showToast.error(getUserFriendlyError(error, 'Unable to send the information request. Please try again.'));
     } finally {
       setSending(false);
     }

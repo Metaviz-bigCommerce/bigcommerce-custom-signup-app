@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -15,6 +15,7 @@ import {
 import { useSession } from '@/context/session';
 import { useToast } from '@/components/common/Toast';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { getUserFriendlyError } from '@/lib/utils';
 import RequestDetailsModal, { RequestItem as ModalRequestItem } from '@/components/requests/RequestDetailsModal';
 import ApprovalDialog from '@/components/requests/ApprovalDialog';
 import RequestInfoModal from '@/components/requests/RequestInfoModal';
@@ -52,15 +53,25 @@ const Dashboard: React.FC = () => {
     router.push(`/requests?${contextParam}${statusParam}`);
   };
 
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, trend: null as string | null, trendUp: true });
   const [animatedStats, setAnimatedStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const animatedStatsRef = useRef(animatedStats);
 
-  // Animate stats on load
+  // Update ref when animatedStats changes
   useEffect(() => {
-    const duration = 1000;
-    const steps = 30;
+    animatedStatsRef.current = animatedStats;
+  }, [animatedStats]);
+
+  // Animate stats on load and updates
+  useEffect(() => {
+    const duration = 600;
+    const steps = 20;
     const interval = duration / steps;
     let step = 0;
+    
+    // Start from current animated values (from ref to avoid stale closure)
+    const startValues = { ...animatedStatsRef.current };
+    const endValues = { ...stats };
     
     const timer = setInterval(() => {
       step++;
@@ -68,13 +79,17 @@ const Dashboard: React.FC = () => {
       const easeOut = 1 - Math.pow(1 - progress, 3);
       
       setAnimatedStats({
-        total: Math.round(stats.total * easeOut),
-        pending: Math.round(stats.pending * easeOut),
-        approved: Math.round(stats.approved * easeOut),
-        rejected: Math.round(stats.rejected * easeOut),
+        total: Math.round(startValues.total + (endValues.total - startValues.total) * easeOut),
+        pending: Math.round(startValues.pending + (endValues.pending - startValues.pending) * easeOut),
+        approved: Math.round(startValues.approved + (endValues.approved - startValues.approved) * easeOut),
+        rejected: Math.round(startValues.rejected + (endValues.rejected - startValues.rejected) * easeOut),
       });
       
-      if (step >= steps) clearInterval(timer);
+      if (step >= steps) {
+        clearInterval(timer);
+        // Ensure final values are exact
+        setAnimatedStats(endValues);
+      }
     }, interval);
     
     return () => clearInterval(timer);
@@ -136,11 +151,12 @@ const Dashboard: React.FC = () => {
   };
 
   const handleApprovalComplete = async (id: string) => {
-    await loadSignupRequests();
-    await loadStats();
+    // Close modal first, then toast will be shown by ApprovalDialog
     setSelectedRequest(null);
     setShowApproveDialog(false);
     setApproveTargetId(null);
+    await loadSignupRequests();
+    await loadStats();
   };
 
   const reject = async (id: string) => {
@@ -153,11 +169,22 @@ const Dashboard: React.FC = () => {
         body: JSON.stringify({ status: 'rejected' }),
       });
       if (res.ok) {
+        // Close modal first, then show success toast
+        setSelectedRequest(null);
         await loadSignupRequests();
         await loadStats();
-        setSelectedRequest(null);
-        toast.showSuccess('Request rejected.');
+        // Use setTimeout to ensure modal closes before toast is shown
+        setTimeout(() => {
+          toast.showSuccess('Request rejected.');
+        }, 100);
+      } else {
+        const errorText = await res.text();
+        // Keep modal open on failure and show error toast
+        toast.showError(getUserFriendlyError(errorText, 'Unable to reject the request. Please try again.'));
       }
+    } catch (error: unknown) {
+      // Keep modal open on failure and show error toast
+      toast.showError(getUserFriendlyError(error, 'Unable to reject the request. Please try again.'));
     } finally {
       setActionLoading(null);
     }
@@ -188,16 +215,22 @@ const Dashboard: React.FC = () => {
         method: 'DELETE',
       });
       if (res.ok) {
+        // Close modal first, then show success toast
         setSelectedRequest(null);
         await loadSignupRequests();
         await loadStats();
-        toast.showSuccess('Request deleted successfully.');
+        // Use setTimeout to ensure modal closes before toast is shown
+        setTimeout(() => {
+          toast.showSuccess('Request deleted successfully.');
+        }, 100);
       } else {
         const errorText = await res.text();
-        toast.showError('Failed to delete request: ' + errorText);
+        // Keep modal open on failure and show error toast
+        toast.showError(getUserFriendlyError(errorText, 'Unable to delete the request. Please try again.'));
       }
     } catch (error: unknown) {
-      toast.showError('Failed to delete request: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      // Keep modal open on failure and show error toast
+      toast.showError(getUserFriendlyError(error, 'Unable to delete the request. Please try again.'));
     } finally {
       setActionLoading(null);
     }
@@ -220,8 +253,8 @@ const Dashboard: React.FC = () => {
       gradient: 'from-blue-500 to-blue-600',
       bgGradient: 'from-blue-50 to-blue-100',
       iconBg: 'bg-blue-500',
-      trend: '+12%',
-      trendUp: true,
+      trend: stats.trend,
+      trendUp: stats.trendUp,
     },
     {
       id: 'pending',
@@ -256,7 +289,7 @@ const Dashboard: React.FC = () => {
 
   const quickActions = [
     {
-      href: `/builder?context=${context}`,
+      href: `/builder?context=${context}&tab=2`,
       icon: Settings,
       title: 'Form Builder',
       description: 'Design beautiful signup forms',
@@ -304,12 +337,12 @@ const Dashboard: React.FC = () => {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0wIDBoNjB2NjBIMHoiLz48cGF0aCBkPSJNMzAgMzBtLTEgMGExIDEgMCAxIDAgMiAwYTEgMSAwIDEgMCAtMiAwIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiLz48L2c+PC9zdmc+')] opacity-40" />
         
         <div className="relative z-10">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400" />
-                  <span className="text-xs sm:text-sm text-white/90 font-medium">SignupPro Dashboard</span>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
+                  <Sparkles className="w-4 h-4 text-yellow-400" />
+                  <span className="text-sm text-white/90 font-medium">Signup Flow Dashboard</span>
                 </div>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold !text-white mb-2 sm:mb-3">
@@ -321,13 +354,27 @@ const Dashboard: React.FC = () => {
               </p>
             </div>
             <Link 
-              href={`/builder?context=${context}`}
-              className="group relative overflow-hidden bg-white text-slate-900 px-4 sm:px-6 py-3 sm:py-4 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25 flex items-center justify-center gap-2 sm:gap-3 w-full lg:w-auto shrink-0"
+              href={`/builder?context=${context}&tab=2`}
+              className="group relative overflow-hidden bg-white text-slate-900 px-6 py-4 rounded-xl font-semibold transition-all duration-500 ease-out hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/30 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-purple-100 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5 relative z-10" />
-              <span className="relative z-10 text-sm sm:text-base">Create New Form</span>
-              <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 relative z-10 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+              {/* Animated gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              
+              {/* Glow effect */}
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400/0 via-blue-400/20 to-purple-400/0 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500 -z-10" />
+              
+              {/* Plus icon with rotation animation */}
+              <div className="relative z-10">
+                <Plus className="w-5 h-5 transition-all duration-500 group-hover:rotate-90 group-hover:scale-110" />
+              </div>
+              
+              <span className="relative z-10 transition-all duration-300 group-hover:tracking-wide">Create New Form</span>
+              
+              {/* Arrow with slide animation */}
+              <ArrowRight className="w-4 h-4 relative z-10 opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-out" />
             </Link>
           </div>
         </div>
@@ -439,10 +486,16 @@ const Dashboard: React.FC = () => {
         headerAction={
           <Link 
             href={`/requests?context=${context}`}
-            className="group flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg sm:rounded-xl font-medium text-xs sm:text-[13px] tracking-tight transition-all duration-300 hover:shadow-md hover:shadow-blue-500/20 w-full sm:w-auto"
+            className="group relative overflow-hidden flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-medium text-[13px] tracking-tight transition-all duration-500 ease-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/30"
           >
-            View All
-            <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
+            {/* Animated background gradient */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-100 via-cyan-100 to-blue-100 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+            
+            <span className="relative z-10 transition-all duration-300 group-hover:font-semibold">View All</span>
+            <ArrowRight className="w-4 h-4 relative z-10 transition-all duration-500 ease-out group-hover:translate-x-2 group-hover:scale-110" />
           </Link>
         }
       />
@@ -485,6 +538,11 @@ const Dashboard: React.FC = () => {
         onClose={() => {
           setShowRequestInfoModal(false);
           setRequestInfoTargetId(null);
+        }}
+        onSent={(id) => {
+          // Close RequestDetailsModal first when info request is successfully sent
+          // The toast is already shown by RequestInfoModal
+          setSelectedRequest(null);
         }}
         showToast={{
           success: (msg) => toast.showSuccess(msg),

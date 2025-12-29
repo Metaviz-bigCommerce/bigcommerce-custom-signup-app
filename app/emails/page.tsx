@@ -14,8 +14,8 @@ export default function EmailsPage() {
         <Tabs
           defaultTab={1}
           tabs={[
-            { id: 1, label: 'Settings', icon: Settings, content: <EmailConfig /> },
-            { id: 2, label: 'Templates', icon: FileText, content: <EmailTemplates /> },
+            { id: 1, label: 'Templates', icon: FileText, content: <EmailTemplates /> },
+            { id: 2, label: 'Settings', icon: Settings, content: <EmailConfig /> },
           ]}
         />
       </main>

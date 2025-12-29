@@ -6,11 +6,47 @@ import { Loader2, Trash2, CheckCircle2, FileEdit, Power, Pencil, Search, LayoutG
 import VersionNameModal from './VersionNameModal';
 import { useToast } from '@/components/common/Toast';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { getUserFriendlyError } from '@/lib/utils';
 import ActivationConfirmModal from './ActivationConfirmModal';
 import FormOperationProgressModal from './FormOperationProgressModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import ActivateConfirmModal from './ActivateConfirmModal';
 import DeactivateConfirmModal from './DeactivateConfirmModal';
+
+// Animation styles for form cards
+const cardAnimationStyles = `
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes fadeInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  .form-card-animate {
+    animation: fadeInUp 0.4s ease-out forwards;
+    opacity: 0;
+  }
+  
+  .form-card-animate-list {
+    animation: fadeInLeft 0.4s ease-out forwards;
+    opacity: 0;
+  }
+`;
 
 // Custom scrollbar styles for form preview
 const scrollbarStyles = `
@@ -220,10 +256,11 @@ const FormPreviewThumbnail: React.FC<{ form: any; isCompact?: boolean; currentFi
               fontWeight: labelWeight,
               display: 'block',
               marginBottom: `${6 * scale}px`,
-              lineHeight: '1.2'
+              lineHeight: '1.2',
+              cursor: 'pointer'
             }}
           >
-            {checkboxLabel}{field.required ? ' *' : ''}
+            {checkboxLabel}{field.required ? <span style={{ color: 'red' }}> *</span> : ''}
           </label>
         )}
         
@@ -533,6 +570,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [displayedCount, setDisplayedCount] = useState(12);
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -579,6 +617,19 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
     v.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Pagination: show only first displayedCount forms
+  const displayedVersions = filteredVersions.slice(0, displayedCount);
+  const hasMore = filteredVersions.length > displayedCount;
+
+  // Reset displayed count when search query changes
+  useEffect(() => {
+    setDisplayedCount(12);
+  }, [searchQuery]);
+
+  const handleLoadMore = () => {
+    setDisplayedCount(prev => prev + 12);
+  };
+
   // Cmd+K shortcut to focus search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -616,13 +667,13 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
       // Close modal and refresh list
       setDeleteModal({ isOpen: false, versionId: null, formName: null, isLoading: false, error: null });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = getUserFriendlyError(error, 'Unable to delete the form. Please try again.');
       setDeleteModal(prev => ({ 
         ...prev, 
         isLoading: false, 
         error: errorMessage 
       }));
-      toast.showError('Failed to delete form: ' + errorMessage);
+      toast.showError(errorMessage);
     }
   };
 
@@ -634,7 +685,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
   const handleSetActive = async (versionId: string, showConfirm: boolean = true) => {
     const version = versions.find((v: any) => v.id === versionId);
     if (!version) {
-      toast.showError('Form not found');
+      toast.showError('The form could not be found. Please refresh the page.');
       return;
     }
 
@@ -700,7 +751,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
     const version = versions.find((v: any) => v.id === versionId);
     if (!version || !version.form) {
       console.error('[Activation] Version not found or has no form data', { versionId });
-      toast.showError('Form not found or has no form data');
+      toast.showError('The form could not be found or is missing required data. Please refresh the page.');
       return;
     }
 
@@ -823,8 +874,9 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
       }, 1500);
     } catch (error: any) {
       console.error('[Activation] Failed to activate version:', error);
-      setProgressError(error?.message || 'Unknown error');
-      toast.showError('Failed to activate form: ' + (error?.message || 'Unknown error'));
+      const friendlyError = getUserFriendlyError(error, 'Unable to activate the form. Please try again.');
+      setProgressError(friendlyError);
+      toast.showError(friendlyError);
       // Keep modal open to show error, user can close by activating/deactivating again or refreshing
     } finally {
       // Don't reset activatingId here - let it auto-close on success or stay open on error
@@ -1046,8 +1098,9 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
       }, 1500);
     } catch (error: any) {
       console.error('[Deactivation] Failed to deactivate:', error);
-      setProgressError(error?.message || 'Unknown error');
-      toast.showError('Failed to deactivate: ' + (error?.message || 'Unknown error'));
+      const friendlyError = getUserFriendlyError(error, 'Unable to deactivate the form. Please try again.');
+      setProgressError(friendlyError);
+      toast.showError(friendlyError);
       // Still refresh state even on error to ensure UI is consistent
       try {
         await mutate();
@@ -1091,7 +1144,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
       setEditingId(null);
       setEditName('');
     } catch (error: any) {
-      toast.showError('Failed to update form name: ' + (error?.message || 'Unknown error'));
+      toast.showError(getUserFriendlyError(error, 'Unable to update the form name. Please try again.'));
       throw error; // Re-throw so modal can handle it
     }
   };
@@ -1204,13 +1257,13 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
     );
   }
 
-  // Loading skeleton for grid view
+  // Loading skeleton for grid view - Enhanced responsive design
   const renderGridSkeleton = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-pulse">
-          <div className="h-48 bg-slate-200" />
-          <div className="p-4 space-y-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+        <div key={i} className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-pulse" style={{ animationDelay: `${i * 50}ms` }}>
+          <div className="h-48 sm:h-56 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200" />
+          <div className="p-4 sm:p-5 space-y-3">
             <div className="h-4 bg-slate-200 rounded w-3/4" />
             <div className="h-3 bg-slate-200 rounded w-1/2" />
           </div>
@@ -1219,16 +1272,16 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
     </div>
   );
 
-  // Loading skeleton for list view
+  // Loading skeleton for list view - Enhanced responsive design
   const renderListSkeleton = () => (
-    <div className="space-y-3">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="bg-white border border-slate-200 rounded-xl p-5 animate-pulse">
-          <div className="flex items-center gap-5">
-            <div className="w-32 h-24 bg-slate-200 rounded-xl flex-shrink-0" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 bg-slate-200 rounded w-1/3" />
-              <div className="h-3 bg-slate-200 rounded w-1/4" />
+    <div className="space-y-2 sm:space-y-3">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+        <div key={i} className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 animate-pulse" style={{ animationDelay: `${i * 50}ms` }}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 lg:gap-5">
+            <div className="w-full sm:w-32 lg:w-40 h-20 sm:h-24 lg:h-28 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 rounded-lg sm:rounded-xl flex-shrink-0" />
+            <div className="flex-1 space-y-2 w-full sm:w-auto">
+              <div className="h-4 bg-slate-200 rounded w-1/3 sm:w-1/2" />
+              <div className="h-3 bg-slate-200 rounded w-1/4 sm:w-1/3" />
             </div>
           </div>
         </div>
@@ -1237,21 +1290,28 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
   );
 
   const renderGridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {filteredVersions.map((version: any) => (
-        <div
-          key={version.id}
-          className="group relative bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl hover:border-blue-400/50 transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
-          onClick={(e) => handleFormClick(version, e)}
-        >
-          {/* Hover overlay effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-indigo-500/0 group-hover:from-blue-500/5 group-hover:to-indigo-500/5 transition-all duration-300 pointer-events-none z-0" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+        {displayedVersions.map((version: any, index: number) => (
+          <div
+            key={version.id}
+            className="group relative bg-white rounded-xl sm:rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-blue-500/10 hover:border-blue-400/50 transition-all duration-300 cursor-pointer transform hover:-translate-y-1.5 hover:scale-[1.02] form-card-animate"
+            style={{
+              animationDelay: `${index * 50}ms`
+            }}
+            onClick={(e) => handleFormClick(version, e)}
+          >
+          {/* Hover overlay effect - Enhanced */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-indigo-500/0 to-purple-500/0 group-hover:from-blue-500/5 group-hover:via-indigo-500/5 group-hover:to-purple-500/5 transition-all duration-300 pointer-events-none z-0" />
+          
+          {/* Active indicator glow */}
+          {version.isActive && isFormActive && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400 z-20" />
+          )}
           
           <div className="relative z-10 flex flex-col h-full">
-            {/* Form Preview - Enhanced with better styling, no gray background */}
+            {/* Form Preview - Enhanced with better styling */}
             {version.form && (
-              <div className="relative border-b border-slate-200 overflow-hidden" style={{ height: '290px', minHeight: '290px' }}>
-                {/* Form Preview Content - Restore scale transform */}
+              <div className="relative border-b border-slate-100 overflow-hidden bg-gradient-to-br from-slate-50 to-white h-[200px] md:h-[280px] min-h-[200px] md:min-h-[280px]">
                 <div className="relative w-full h-full" >
                   <FormPreviewThumbnail 
                     form={version.form} 
@@ -1260,36 +1320,38 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                     isCurrentForm={currentFormVersionId === version.id}
                   />
                 </div>
+                {/* Overlay gradient on hover */}
+                <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               </div>
             )}
             
-            {/* Card Content - Minimal footer like Google Docs */}
-            <div className="flex flex-col flex-1 px-5 pb-4 pt-3">
+            {/* Card Content - Enhanced spacing and typography */}
+            <div className="flex flex-col flex-1 px-3 sm:px-4 md:px-5 pb-2.5 sm:pb-3 md:pb-4 pt-2.5 sm:pt-3 md:pt-4 bg-gradient-to-b from-white to-slate-50/30">
               {/* Header - Name with Active Badge */}
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-slate-700 truncate group-hover:text-blue-600 transition-colors">
+              <div className="flex items-start justify-between gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                <div className="flex items-start gap-1.5 sm:gap-2 flex-1 min-w-0">
+                  <h3 className="text-xs sm:text-sm md:text-base font-semibold text-slate-800 truncate group-hover:text-blue-600 transition-colors leading-tight">
                     {version.name || 'Unnamed'}
                   </h3>
                   {version.isActive && isFormActive && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 flex-shrink-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Active
+                    <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200 flex-shrink-0 shadow-sm">
+                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Active</span>
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Minimal Footer - Just metadata and actions */}
-              <div className="flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
-                {/* Metadata */}
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <span className="text-slate-400">Modified:</span>
-                  <span className="font-medium text-slate-600">{formatDateShort(version.updatedAt)}</span>
+              {/* Footer - Metadata and actions */}
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2 mt-auto" onClick={(e) => e.stopPropagation()}>
+                {/* Metadata - Enhanced */}
+                <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-slate-500">
+                  <span className="text-slate-400 hidden sm:inline">Modified:</span>
+                  <span className="font-medium text-slate-600 truncate">{formatDateShort(version.updatedAt)}</span>
                 </div>
                 
-                {/* Secondary Actions - Compact */}
-                <div className="flex items-center gap-0.5">
+                {/* Secondary Actions - Enhanced with better spacing */}
+                <div className="flex items-center gap-0.5 sm:gap-1">
                   {version.isActive && isFormActive ? (
                     <button
                       onClick={(e) => {
@@ -1297,12 +1359,13 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                         handleDeactivate();
                       }}
                       disabled={deactivatingId !== null || deactivateModal.isLoading}
-                      className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer"
+                      className="p-1 sm:p-1.5 md:p-2 text-rose-600 hover:bg-rose-50 rounded-md sm:rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer group/btn"
+                      title="Deactivate form"
                     >
                       {deactivatingId !== null ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 animate-spin" />
                       ) : (
-                        <PowerOff className="w-3.5 h-3.5" />
+                        <PowerOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 group-hover/btn:rotate-12 transition-transform" />
                       )}
                     </button>
                   ) : (
@@ -1312,26 +1375,29 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                         handleSetActive(version.id, true);
                       }}
                       disabled={activatingId === version.id || activateModal.isLoading}
-                      className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer"
+                      className="p-1 sm:p-1.5 md:p-2 text-emerald-600 hover:bg-emerald-50 rounded-md sm:rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer group/btn"
+                      title="Activate form"
                     >
                       {activatingId === version.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 animate-spin" />
                       ) : (
-                        <Power className="w-3.5 h-3.5" />
+                        <Power className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 group-hover/btn:scale-110 transition-transform" />
                       )}
                     </button>
                   )}
                   <button
                     onClick={(e) => handleEdit(version, e)}
-                    className="p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                    className="p-1 sm:p-1.5 md:p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-md sm:rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                    title="Edit form name"
                   >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
                   </button>
                   <button
                     onClick={(e) => handleDelete(version.id, e)}
-                    className="p-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                    className="p-1 sm:p-1.5 md:p-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-md sm:rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                    title="Delete form"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
                   </button>
                 </div>
               </div>
@@ -1343,26 +1409,30 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
   );
 
   const renderListView = () => (
-    <div className="space-y-3">
-      {filteredVersions.map((version: any) => (
-        <div
-          key={version.id}
-          className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:shadow-xl hover:border-blue-400/50 transition-all duration-300 cursor-pointer transform hover:-translate-y-0.5"
-          onClick={(e) => handleFormClick(version, e)}
-        >
-          {/* Hover overlay effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 to-indigo-500/0 group-hover:from-blue-500/5 group-hover:to-indigo-500/5 rounded-xl transition-all duration-300 pointer-events-none" />
+    <div className="space-y-2 sm:space-y-2.5 md:space-y-3">
+        {displayedVersions.map((version: any, index: number) => (
+          <div
+            key={version.id}
+            className="group relative bg-white border border-slate-200 rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-3.5 md:p-4 lg:p-5 hover:shadow-xl hover:shadow-blue-500/5 hover:border-blue-400/50 transition-all duration-300 cursor-pointer transform hover:-translate-y-0.5 form-card-animate-list"
+            style={{
+              animationDelay: `${index * 50}ms`
+            }}
+            onClick={(e) => handleFormClick(version, e)}
+          >
+          {/* Hover overlay effect - Enhanced */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-indigo-500/0 to-purple-500/0 group-hover:from-blue-500/5 group-hover:via-indigo-500/5 group-hover:to-purple-500/5 rounded-lg sm:rounded-xl md:rounded-2xl transition-all duration-300 pointer-events-none" />
           
-          <div className="relative z-10 flex items-center justify-between gap-6">
-            <div className="flex items-center gap-5 flex-1 min-w-0">
-              {/* Form Preview Thumbnail - Enhanced List View with better sizing */}
+          {/* Active indicator bar */}
+          {version.isActive && isFormActive && (
+            <div className="absolute top-0 left-0 bottom-0 w-0.5 sm:w-1 bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-400 rounded-l-lg sm:rounded-l-xl md:rounded-l-2xl" />
+          )}
+          
+          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3 md:gap-4 lg:gap-6">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-5 flex-1 min-w-0 w-full sm:w-auto">
+              {/* Form Preview Thumbnail - Enhanced responsive sizing */}
               {version.form && (
-                <div className="relative border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 shadow-sm group-hover:shadow-md transition-shadow bg-white" style={{ 
-                  width: '180px', 
-                  height: '140px',
-                  minWidth: '180px',
-                  minHeight: '140px'
-                }}>
+                <div className="relative border border-slate-200 rounded-md sm:rounded-lg md:rounded-xl overflow-hidden flex-shrink-0 shadow-sm group-hover:shadow-md transition-shadow bg-white w-[120px] h-[120px] min-w-[120px] min-h-[120px] sm:w-[150px] sm:h-[140px] sm:min-w-[150px] sm:min-h-[140px] md:w-[180px] md:h-[160px] md:min-w-[180px] md:min-h-[160px] lg:w-[220px] lg:h-[200px] lg:min-w-[220px] lg:min-h-[200px]"
+                >
                   <div className="relative w-full h-full">
                     <FormPreviewThumbnail 
                       form={version.form} 
@@ -1376,28 +1446,28 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
               )}
               
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-1">
-                  <h3 className="text-base font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 md:gap-3 mb-1 sm:mb-0">
+                  <h3 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors leading-tight">
                     {version.name || 'Unnamed'}
                   </h3>
                   {version.isActive && isFormActive && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 flex-shrink-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Active
+                    <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200 flex-shrink-0 shadow-sm w-fit">
+                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Active</span>
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-4 text-xs text-slate-500">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-400">Modified:</span>
-                    <span className="font-medium text-slate-600">{formatDateShort(version.updatedAt)}</span>
+                <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 text-[10px] sm:text-xs md:text-sm text-slate-500 mt-0.5 sm:mt-1">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <span className="text-slate-400 hidden sm:inline">Modified:</span>
+                    <span className="font-medium text-slate-600 truncate">{formatDateShort(version.updatedAt)}</span>
                   </div>
                 </div>
               </div>
             </div>
             
-            {/* Actions - Always show activate/deactivate button */}
-            <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            {/* Actions - Enhanced responsive design */}
+            <div className="flex items-center gap-0.5 sm:gap-1 md:gap-1.5 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start" onClick={(e) => e.stopPropagation()}>
               {version.isActive && isFormActive ? (
                 <button
                   onClick={(e) => {
@@ -1405,12 +1475,13 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                     handleDeactivate();
                   }}
                   disabled={deactivatingId !== null || deactivateModal.isLoading}
-                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer"
+                  className="p-1.5 sm:p-2 md:p-2.5 text-rose-600 hover:bg-rose-50 rounded-md sm:rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer group/btn"
+                  title="Deactivate form"
                 >
                   {deactivatingId !== null ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 animate-spin" />
                   ) : (
-                    <PowerOff className="w-4 h-4" />
+                    <PowerOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 group-hover/btn:rotate-12 transition-transform" />
                   )}
                 </button>
               ) : (
@@ -1420,60 +1491,65 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                     handleSetActive(version.id, true);
                   }}
                   disabled={activatingId === version.id || activateModal.isLoading}
-                  className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer"
+                  className="p-1.5 sm:p-2 md:p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-md sm:rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 active:scale-95 cursor-pointer group/btn"
+                  title="Activate form"
                 >
                   {activatingId === version.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 animate-spin" />
                   ) : (
-                    <Power className="w-4 h-4" />
+                    <Power className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 group-hover/btn:scale-110 transition-transform" />
                   )}
                 </button>
               )}
               <button
                 onClick={(e) => handleEdit(version, e)}
-                className="p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                className="p-1.5 sm:p-2 md:p-2.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-md sm:rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                title="Edit form name"
               >
-                <Pencil className="w-4 h-4" />
+                <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={(e) => handleDelete(version.id, e)}
-                className="p-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                className="p-1.5 sm:p-2 md:p-2.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-md sm:rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                title="Delete form"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
               </button>
             </div>
           </div>
         </div>
-      ))}
+        ))}
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header Section - Matching Requests page style */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-6 sm:p-8">
-        {/* Background Elements */}
+    <div className="space-y-4 sm:space-y-6">
+      <style>{cardAnimationStyles}</style>
+      {/* Header Section - Enhanced with better responsive design */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 rounded-xl sm:rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-6 lg:p-8 shadow-xl shadow-slate-900/20">
+        {/* Background Elements - Enhanced */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-20 -right-20 w-60 h-60 bg-blue-500/15 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-indigo-500/15 rounded-full blur-3xl" />
+          <div className="absolute -top-20 -right-20 w-60 h-60 bg-blue-500/15 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-indigo-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
         </div>
         
         <div className="relative z-10">
-          {/* Title Row */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
+          {/* Title Row - Enhanced responsive typography */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 lg:gap-6 mb-3 sm:mb-4 lg:mb-6">
             <div>
-              <h1 className="text-2xl font-bold !text-white mb-2">Saved Forms</h1>
-              <p className="text-slate-400 text-sm">Manage and activate your signup forms</p>
+              <h1 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-bold !text-white mb-1 sm:mb-2 tracking-tight leading-tight">Saved Forms</h1>
+              <p className="text-slate-300 sm:text-slate-400 text-[11px] sm:text-xs md:text-sm leading-relaxed">Manage and activate your signup forms</p>
             </div>
           </div>
           
-          {/* Search Bar and View Toggle */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative group flex-1">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300" />
+          {/* Search Bar and View Toggle - Enhanced mobile responsiveness */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <div className="relative group flex-1 w-full">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-xl sm:rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300" />
               <div className="relative flex items-center">
-                <div className="absolute left-4 z-10 flex items-center pointer-events-none">
-                  <Search className="w-5 h-5 text-slate-300 group-focus-within:text-blue-400 transition-colors" />
+                <div className="absolute left-3 sm:left-4 z-10 flex items-center pointer-events-none">
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 group-focus-within:text-blue-400 transition-colors duration-200" />
                 </div>
                 <input
                   ref={searchInputRef}
@@ -1481,53 +1557,53 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
                   placeholder="Search forms..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-16 py-3.5 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:bg-white/15 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 cursor-text"
+                  className="w-full pl-9 sm:pl-10 md:pl-12 pr-10 sm:pr-12 md:pr-16 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm md:text-base bg-white/10 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl md:rounded-2xl text-white placeholder-slate-400 focus:outline-none focus:bg-white/15 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 cursor-text"
                   title="Search forms - Press Cmd+K or Ctrl+K to focus"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-4 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                    className="absolute right-3 sm:right-4 p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer active:scale-95"
                     aria-label="Clear search"
                   >
-                    <XCircle className="w-5 h-5" />
+                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 )}
               </div>
             </div>
             
-            {/* View Toggle */}
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm p-1 rounded-xl border border-white/10">
+            {/* View Toggle - Enhanced mobile design */}
+            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 bg-white/10 backdrop-blur-sm p-0.5 sm:p-1 rounded-lg sm:rounded-xl md:rounded-2xl border border-white/10 w-full sm:w-auto justify-center sm:justify-start">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
+                className={`p-1.5 sm:p-2 md:p-2.5 rounded-md sm:rounded-lg transition-all duration-200 cursor-pointer flex-1 sm:flex-none ${
                   viewMode === 'grid'
-                    ? 'bg-white/20 text-white shadow-lg shadow-white/10'
+                    ? 'bg-white/20 text-white shadow-lg shadow-white/10 scale-105'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
                 aria-label="Grid view"
               >
-                <LayoutGrid className="w-5 h-5" />
+                <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 mx-auto sm:mx-0" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
+                className={`p-1.5 sm:p-2 md:p-2.5 rounded-md sm:rounded-lg transition-all duration-200 cursor-pointer flex-1 sm:flex-none ${
                   viewMode === 'list'
-                    ? 'bg-white/20 text-white shadow-lg shadow-white/10'
+                    ? 'bg-white/20 text-white shadow-lg shadow-white/10 scale-105'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
                 aria-label="List view"
               >
-                <ListChecks className="w-5 h-5" />
+                <ListChecks className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 mx-auto sm:mx-0" />
               </button>
             </div>
           </div>
           
-          {/* Search Results Indicator */}
+          {/* Search Results Indicator - Enhanced */}
           {searchQuery && (
-            <div className="mt-4 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-              <span className="text-sm text-slate-300">
+            <div className="mt-2 sm:mt-3 md:mt-4 flex items-center gap-1.5 sm:gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-400 animate-pulse" />
+              <span className="text-[10px] sm:text-xs md:text-sm text-slate-300 leading-tight">
                 Found <span className="font-semibold text-white">{filteredVersions.length}</span> of{' '}
                 <span className="font-semibold text-white">{versions.length}</span> forms
               </span>
@@ -1542,21 +1618,22 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
           {viewMode === 'grid' ? renderGridSkeleton() : renderListSkeleton()}
         </div>
       ) : filteredVersions.length === 0 ? (
-        <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-200 p-12 sm:p-16">
-          {/* Background decoration */}
+        <div className="relative overflow-hidden bg-white rounded-xl sm:rounded-2xl border border-slate-200 p-8 sm:p-12 lg:p-16 shadow-sm">
+          {/* Background decoration - Enhanced */}
           <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute -top-20 -right-20 w-60 h-60 bg-blue-500/5 rounded-full blur-3xl" />
-            <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-indigo-500/5 rounded-full blur-3xl" />
+            <div className="absolute -top-20 -right-20 w-60 h-60 bg-blue-500/5 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-indigo-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-purple-500/3 rounded-full blur-3xl" />
           </div>
           
           <div className="relative z-10 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 mb-6 shadow-sm">
-              <Search className="w-10 h-10 text-slate-400" />
+            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 mb-4 sm:mb-6 shadow-sm">
+              <Search className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 mb-2 sm:mb-3">
               {searchQuery ? 'No forms found' : 'No saved forms yet'}
             </h3>
-            <p className="text-slate-500 text-sm max-w-md mx-auto mb-6">
+            <p className="text-slate-500 text-xs sm:text-sm max-w-md mx-auto mb-6 sm:mb-8 px-4">
               {searchQuery 
                 ? 'Try adjusting your search terms or clear the search to see all forms.' 
                 : 'Create and save your first form to start managing and activating signup forms.'}
@@ -1564,7 +1641,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
             {!searchQuery && onNavigateToBuilder && (
               <button
                 onClick={onNavigateToBuilder}
-                className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all duration-200 text-sm font-semibold shadow-sm shadow-blue-500/20 hover:shadow-md hover:shadow-blue-500/30 cursor-pointer"
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 text-sm font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 cursor-pointer transform hover:-translate-y-0.5"
               >
                 Go to Builder
               </button>
@@ -1572,9 +1649,38 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
           </div>
         </div>
       ) : (
-        <div className="transition-all duration-300">
-          {viewMode === 'grid' ? renderGridView() : renderListView()}
-        </div>
+        <>
+          {/* Count Display - Enhanced */}
+          {filteredVersions.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-2 text-[10px] sm:text-xs md:text-sm text-slate-600 mb-2 sm:mb-3 md:mb-4 px-1">
+              <span className="font-medium leading-tight">
+                Showing <span className="text-slate-900 font-semibold">{displayedVersions.length}</span> out of{' '}
+                <span className="text-slate-900 font-semibold">{filteredVersions.length}</span> forms
+              </span>
+              {viewMode === 'grid' && (
+                <span className="text-slate-400 text-[10px] sm:text-xs hidden sm:inline">
+                  {filteredVersions.length === 1 ? 'form' : 'forms'}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="transition-all duration-300">
+            {viewMode === 'grid' ? renderGridView() : renderListView()}
+          </div>
+          
+          {/* Load More Button - Enhanced */}
+          {hasMore && (
+            <div className="flex justify-center pt-4 sm:pt-6">
+              <button
+                onClick={handleLoadMore}
+                className="px-6 py-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-xl hover:from-slate-800 hover:to-slate-700 active:scale-[0.98] transition-all duration-200 text-sm font-semibold shadow-lg shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/30 cursor-pointer transform hover:-translate-y-0.5"
+              >
+                Load More Forms
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       <VersionNameModal

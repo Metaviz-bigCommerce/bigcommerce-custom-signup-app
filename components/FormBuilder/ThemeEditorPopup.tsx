@@ -115,7 +115,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
           </div>
           <button
             onClick={handleClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white/80 rounded-lg transition-all duration-200 hover:scale-110"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white/80 rounded-lg transition-all duration-200 hover:scale-110 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -129,7 +129,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('branding')}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-slate-600" />
@@ -145,7 +145,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
                         <button
                           key={preset.name}
                           onClick={() => handleBrandingPreset(preset)}
-                          className="group relative p-3 rounded-lg border-2 border-slate-200 hover:border-purple-400 transition-all duration-200 hover:shadow-md"
+                          className="group relative p-3 rounded-lg border-2 border-slate-200 hover:border-purple-400 transition-all duration-200 hover:shadow-md cursor-pointer"
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <div
@@ -169,7 +169,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('content')}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <Type className="w-4 h-4 text-slate-600" />
@@ -215,7 +215,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('typography')}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <Heading className="w-4 h-4 text-slate-600" />
@@ -305,7 +305,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('layout')}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <Layout className="w-4 h-4 text-slate-600" />
@@ -370,7 +370,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('button')}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-purple-50 hover:to-pink-50 flex items-center justify-between transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <MousePointerClick className="w-4 h-4 text-slate-600" />
@@ -471,6 +471,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
                     </div>
                     <button
                       type="button"
+                      className="cursor-pointer"
                       style={{
                         backgroundColor: localTheme.buttonBg || localTheme.primaryColor || '#2563eb',
                         color: localTheme.buttonColor || '#ffffff',
@@ -506,7 +507,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
           <div className="flex gap-3 ml-auto">
             <button
               onClick={handleClose}
-              className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-700 bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200"
+              className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-700 bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 cursor-pointer"
             >
               Cancel
             </button>
@@ -515,7 +516,7 @@ const ThemeEditorPopup: React.FC<ThemeEditorPopupProps> = ({ isOpen, theme, onSa
               disabled={!hasChanges}
               className={`px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 ${
                 hasChanges 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:scale-105' 
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:scale-105 cursor-pointer' 
                   : 'bg-slate-300 cursor-not-allowed'
               }`}
             >

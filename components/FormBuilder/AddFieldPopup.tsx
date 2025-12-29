@@ -232,7 +232,7 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
           </div>
           <button
             onClick={handleCancel}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white/80 rounded-lg transition-all duration-200 hover:scale-110"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white/80 rounded-lg transition-all duration-200 hover:scale-110 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -246,7 +246,7 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('basic')}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-indigo-50 flex items-center justify-between transition-all duration-200"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-indigo-50 flex items-center justify-between transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <Type className="w-4 h-4 text-slate-600" />
@@ -305,7 +305,7 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
                           <button
                             type="button"
                             onClick={addOption}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
                           >
                             <Plus className="w-3.5 h-3.5" />
                             Add Option
@@ -351,6 +351,7 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
                               <button
                                 type="button"
                                 onClick={() => removeOption(index)}
+                                className="cursor-pointer"
                                 disabled={
                                   (localField.type === 'radio' && (localField.options?.length || 0) <= 2) ||
                                   (localField.type === 'checkbox' && !localField.label?.trim() && (localField.options?.length || 0) <= 1)
@@ -376,7 +377,7 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('labelStyle')}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-indigo-50 flex items-center justify-between transition-all duration-200"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-indigo-50 flex items-center justify-between transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <Type className="w-4 h-4 text-slate-600" />
@@ -423,7 +424,7 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => toggleSection('inputStyle')}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-indigo-50 flex items-center justify-between transition-all duration-200"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-indigo-50 flex items-center justify-between transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <MousePointerClick className="w-4 h-4 text-slate-600" />
@@ -673,13 +674,13 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
           <div className="flex gap-3 ml-auto">
             <button
               onClick={handleCancel}
-              className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-700 bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200"
+              className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-700 bg-white border-2 border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 cursor-pointer"
             >
               Cancel
             </button>
             <button
               onClick={handleAdd}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transform hover:scale-105 transition-all duration-200"
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transform hover:scale-105 transition-all duration-200 cursor-pointer"
             >
               Add Field
             </button>
