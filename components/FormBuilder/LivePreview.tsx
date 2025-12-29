@@ -42,6 +42,7 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
         viewMode,
         sourceTab: 1, // Builder tab is always tab 1
         context: context, // Store context for redirect
+        timestamp: Date.now(), // Add timestamp to identify recent navigation from builder
         // Store state needed for top action bar
         lastSavedState: additionalState.lastSavedState || null,
         isEditing: additionalState.isEditing || false,
@@ -114,27 +115,35 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
   const pageBg = normalizedTheme.pageBackgroundColor || '#f9fafb';
   
   // Form content component - matching exact script structure
-  const FormContent = () => (
+  const FormContent = () => {
+    // Responsive font sizes for mobile
+    const isMobile = viewMode === 'mobile';
+    const responsiveTitleSize = isMobile ? Math.max(18, titleFontSize * 0.85) : titleFontSize;
+    const responsiveSubtitleSize = isMobile ? Math.max(12, subtitleFontSize * 0.9) : subtitleFontSize;
+    
+    return (
     <>
-      {/* Title - exact match from script */}
+      {/* Title - responsive sizing */}
       <h1 
         style={{
-          fontSize: titleFontSize + 'px',
+          fontSize: responsiveTitleSize + 'px',
           fontWeight: titleFontWeight,
           color: titleColor,
-          margin: '0 0 6px 0'
+          margin: '0 0 6px 0',
+          lineHeight: '1.3'
         }}
       >
         {ttl}
       </h1>
       
-      {/* Subtitle - exact match from script */}
+      {/* Subtitle - responsive sizing */}
       <p 
         style={{
-          fontSize: subtitleFontSize + 'px',
+          fontSize: responsiveSubtitleSize + 'px',
           fontWeight: subtitleFontWeight,
           color: subtitleColor,
-          margin: '0 0 18px 0'
+          margin: '0 0 18px 0',
+          lineHeight: '1.4'
         }}
       >
         {sub}
@@ -201,21 +210,32 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
             const fontSize = field.fontSize || '14';
             const textColor = field.textColor || '#0f172a';
             
+            // Responsive sizing for mobile
+            const isMobile = viewMode === 'mobile';
+            const fontSizeNum = typeof fontSize === 'string' ? parseInt(fontSize) : fontSize;
+            const paddingNum = typeof padding === 'string' ? parseInt(padding) : padding;
+            const labelSizeNum = field.labelSize ? (typeof field.labelSize === 'string' ? parseInt(field.labelSize) : field.labelSize) : 14;
+            const responsiveFontSize = isMobile ? Math.max(14, fontSizeNum * 0.95) : fontSizeNum;
+            const responsiveLabelSize = isMobile && field.labelSize ? Math.max(13, labelSizeNum * 0.9) : (field.labelSize || 14);
+            const responsivePadding = isMobile ? Math.max(10, paddingNum * 0.85) : paddingNum;
+            
             return (
-              <div key={field.id}>
-                {/* Label - exact match from script */}
+              <div key={field.id} style={{ width: '100%', boxSizing: 'border-box' }}>
+                {/* Label - responsive sizing */}
                 {/* Hide label for checkbox if empty (option-only checkbox) */}
                 {(field.type !== 'checkbox' || field.label?.trim()) && (
                   <label 
                     style={{ 
                       color: field.labelColor,
-                      fontSize: field.labelSize + 'px',
+                      fontSize: responsiveLabelSize + 'px',
                       fontWeight: field.labelWeight,
                       display: 'block',
-                      marginBottom: '6px'
+                      marginBottom: '6px',
+                      cursor: 'pointer',
+                      lineHeight: '1.4'
                     }}
                   >
-                    {field.label}{field.required ? ' *' : ''}
+                    {field.label}{field.required ? <span style={{ color: 'red' }}> *</span> : ''}
                   </label>
                 )}
                 
@@ -231,15 +251,16 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                         borderStyle: 'solid',
                         borderRadius: borderRadius + 'px',
                         backgroundColor: bgColor,
-                        padding: padding + 'px',
-                        paddingRight: (parseInt(padding) || 12) + 30 + 'px', // Extra padding for dropdown arrow
-                        fontSize: fontSize + 'px',
+                        padding: responsivePadding + 'px',
+                        paddingRight: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 30 + 'px', // Extra padding for dropdown arrow
+                        fontSize: responsiveFontSize + 'px',
                         color: textColor,
                         width: '100%',
                         outline: 'none',
                         appearance: 'none',
                         WebkitAppearance: 'none',
-                        MozAppearance: 'none'
+                        MozAppearance: 'none',
+                        boxSizing: 'border-box'
                       }}
                       className="appearance-none bg-no-repeat bg-right pr-8"
                       aria-label={field.label}
@@ -252,12 +273,12 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                     <svg
                       style={{
                         position: 'absolute',
-                        right: (parseInt(padding) || 12) + 8 + 'px',
+                        right: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 8 + 'px',
                         top: '50%',
                         transform: 'translateY(-50%)',
                         pointerEvents: 'none',
-                        width: '16px',
-                        height: '16px'
+                        width: isMobile ? '14px' : '16px',
+                        height: isMobile ? '14px' : '16px'
                       }}
                       viewBox="0 0 24 24"
                       fill="none"
@@ -280,36 +301,37 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                           borderColor: borderColor,
                           borderWidth: borderWidth + 'px',
                           borderStyle: 'solid',
-                          borderRadius: borderRadius + 'px',
-                          backgroundColor: bgColor,
-                          padding: padding + 'px',
-                          paddingRight: (parseInt(padding) || 12) + 30 + 'px', // Extra padding for dropdown arrow
-                          fontSize: fontSize + 'px',
-                          color: textColor,
-                          width: '100%',
-                          outline: 'none',
-                          appearance: 'none',
-                          WebkitAppearance: 'none',
-                          MozAppearance: 'none'
-                        }}
-                        className="appearance-none bg-no-repeat bg-right pr-8"
-                        aria-label={field.label}
-                      >
-                        <option value="">Select a state/province</option>
-                        {countryData.find(c => c.countryShortCode === selectedCountryCode)!.regions.map((r, i) => (
-                          <option key={(r.shortCode || r.name) + i} value={r.shortCode || r.name}>{r.name}</option>
-                        ))}
-                      </select>
-                      <svg
-                        style={{
-                          position: 'absolute',
-                          right: (parseInt(padding) || 12) + 8 + 'px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          pointerEvents: 'none',
-                          width: '16px',
-                          height: '16px'
-                        }}
+                        borderRadius: borderRadius + 'px',
+                        backgroundColor: bgColor,
+                        padding: responsivePadding + 'px',
+                        paddingRight: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 30 + 'px', // Extra padding for dropdown arrow
+                        fontSize: responsiveFontSize + 'px',
+                        color: textColor,
+                        width: '100%',
+                        outline: 'none',
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                      className="appearance-none bg-no-repeat bg-right pr-8"
+                      aria-label={field.label}
+                    >
+                      <option value="">Select a state/province</option>
+                      {countryData.find(c => c.countryShortCode === selectedCountryCode)!.regions.map((r, i) => (
+                        <option key={(r.shortCode || r.name) + i} value={r.shortCode || r.name}>{r.name}</option>
+                      ))}
+                    </select>
+                    <svg
+                      style={{
+                        position: 'absolute',
+                        right: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 8 + 'px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        pointerEvents: 'none',
+                        width: isMobile ? '14px' : '16px',
+                        height: isMobile ? '14px' : '16px'
+                      }}
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
@@ -333,11 +355,12 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                         borderStyle: 'solid',
                         borderRadius: borderRadius + 'px',
                         backgroundColor: bgColor,
-                        padding: padding + 'px',
-                        fontSize: fontSize + 'px',
+                        padding: responsivePadding + 'px',
+                        fontSize: responsiveFontSize + 'px',
                         color: textColor,
                         width: '100%',
-                        outline: 'none'
+                        outline: 'none',
+                        boxSizing: 'border-box'
                       }}
                       aria-label={field.label}
                       disabled={!selectedCountryCode}
@@ -353,16 +376,18 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                       borderStyle: 'solid',
                       borderRadius: borderRadius + 'px',
                       backgroundColor: bgColor,
-                      padding: padding + 'px',
-                      fontSize: fontSize + 'px',
+                      padding: responsivePadding + 'px',
+                      fontSize: responsiveFontSize + 'px',
                       color: textColor,
                       width: '100%',
-                      outline: 'none'
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      resize: 'vertical'
                     }}
                     aria-label={field.label}
                   />
                 ) : field.type === 'select' ? (
-                  <div style={{ position: 'relative', width: '100%' }}>
+                  <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
                     <select
                       style={{
                         borderColor: borderColor,
@@ -370,15 +395,16 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                         borderStyle: 'solid',
                         borderRadius: borderRadius + 'px',
                         backgroundColor: bgColor,
-                        padding: padding + 'px',
-                        paddingRight: (parseInt(padding) || 12) + 30 + 'px', // Extra padding for dropdown arrow
-                        fontSize: fontSize + 'px',
+                        padding: responsivePadding + 'px',
+                        paddingRight: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 30 + 'px', // Extra padding for dropdown arrow
+                        fontSize: responsiveFontSize + 'px',
                         color: textColor,
                         width: '100%',
                         outline: 'none',
                         appearance: 'none',
                         WebkitAppearance: 'none',
-                        MozAppearance: 'none'
+                        MozAppearance: 'none',
+                        boxSizing: 'border-box'
                       }}
                       aria-label={field.label}
                     >
@@ -390,12 +416,12 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                     <svg
                       style={{
                         position: 'absolute',
-                        right: (parseInt(padding) || 12) + 8 + 'px',
+                        right: (typeof responsivePadding === 'number' ? responsivePadding : parseInt(String(responsivePadding)) || 12) + 8 + 'px',
                         top: '50%',
                         transform: 'translateY(-50%)',
                         pointerEvents: 'none',
-                        width: '16px',
-                        height: '16px'
+                        width: isMobile ? '14px' : '16px',
+                        height: isMobile ? '14px' : '16px'
                       }}
                       viewBox="0 0 24 24"
                       fill="none"
@@ -419,13 +445,14 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                           name={`radio-${field.id}`}
                           value={opt.value}
                           style={{
-                            width: '18px',
-                            height: '18px',
-                            cursor: 'pointer'
+                            width: isMobile ? '16px' : '18px',
+                            height: isMobile ? '16px' : '18px',
+                            cursor: 'pointer',
+                            flexShrink: 0
                           }}
                           className="radio-custom"
                         />
-                        <span style={{ fontSize: fontSize + 'px', color: textColor }}>
+                        <span style={{ fontSize: responsiveFontSize + 'px', color: textColor, lineHeight: '1.4' }}>
                           {opt.label}
                         </span>
                       </label>
@@ -441,13 +468,14 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                             type="checkbox"
                             value={opt.value}
                             style={{
-                              width: '18px',
-                              height: '18px',
-                              cursor: 'pointer'
+                              width: isMobile ? '16px' : '18px',
+                              height: isMobile ? '16px' : '18px',
+                              cursor: 'pointer',
+                              flexShrink: 0
                             }}
                             className="checkbox-custom"
                           />
-                          <span style={{ fontSize: fontSize + 'px', color: textColor }}>
+                          <span style={{ fontSize: responsiveFontSize + 'px', color: textColor, lineHeight: '1.4' }}>
                             {opt.label}
                           </span>
                         </label>
@@ -459,13 +487,14 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                           <input
                             type="checkbox"
                             style={{
-                              width: '18px',
-                              height: '18px',
-                              cursor: 'pointer'
+                              width: isMobile ? '16px' : '18px',
+                              height: isMobile ? '16px' : '18px',
+                              cursor: 'pointer',
+                              flexShrink: 0
                             }}
                             className="checkbox-custom"
                           />
-                          <span style={{ fontSize: fontSize + 'px', color: textColor }}>
+                          <span style={{ fontSize: responsiveFontSize + 'px', color: textColor, lineHeight: '1.4' }}>
                             {field.label}
                           </span>
                         </label>
@@ -481,11 +510,12 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                       borderStyle: 'solid',
                       borderRadius: borderRadius + 'px',
                       backgroundColor: bgColor,
-                      padding: padding + 'px',
-                      fontSize: fontSize + 'px',
+                      padding: responsivePadding + 'px',
+                      fontSize: responsiveFontSize + 'px',
                       color: textColor,
                       width: '100%',
-                      outline: 'none'
+                      outline: 'none',
+                      boxSizing: 'border-box'
                     }}
                     aria-label={field.label}
                   />
@@ -506,11 +536,12 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                       borderStyle: 'solid',
                       borderRadius: borderRadius + 'px',
                       backgroundColor: bgColor,
-                      padding: padding + 'px',
-                      fontSize: fontSize + 'px',
+                      padding: responsivePadding + 'px',
+                      fontSize: responsiveFontSize + 'px',
                       color: textColor,
                       width: '100%',
-                      outline: 'none'
+                      outline: 'none',
+                      boxSizing: 'border-box'
                     }}
                     aria-label={field.label}
                   />
@@ -531,12 +562,12 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
           }
         })()}
         
-        {/* Submit Button - exact match from script */}
+        {/* Submit Button - responsive sizing */}
         {formFields.length > 0 && (
           <button
             type="submit"
             style={{
-              height: '46px',
+              height: isMobile ? '44px' : '46px',
               border: '0',
               borderRadius: btnr + 'px',
               background: btnbg,
@@ -546,8 +577,11 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
               cursor: 'pointer',
               marginTop: '8px',
               transition: 'transform .12s ease, opacity .12s ease',
-              width: '100%'
+              width: '100%',
+              fontSize: isMobile ? '14px' : '16px',
+              boxSizing: 'border-box'
             }}
+            className="cursor-pointer"
             onMouseDown={(e) => {
               e.currentTarget.style.transform = 'scale(0.98)';
             }}
@@ -561,6 +595,7 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
       </form>
     </>
   );
+  };
   
   return (
     <>
@@ -629,58 +664,60 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
         }
       `}</style>
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
-        {/* Preview Header - Matching EmailTemplates style */}
-        <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                <Eye className="w-4 h-4 text-white" />
+        {/* Preview Header - Matching EmailTemplates style - Responsive */}
+        <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center flex-shrink-0">
+                <Eye className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
               </div>
-              <div>
-                <h3 className="font-semibold text-slate-800">Live Preview</h3>
-                <p className="text-xs text-slate-500">Changes update in real-time</p>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-slate-800 text-sm sm:text-base truncate">Live Preview</h3>
+                <p className="text-[10px] sm:text-xs text-slate-500 truncate">Changes update in real-time</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              {/* View Mode Toggle */}
-              <div className="flex items-center gap-1 bg-slate-100 rounded-full p-1">
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+              {/* View Mode Toggle - Responsive */}
+              <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100 rounded-full p-0.5 sm:p-1">
                 <button
                   onClick={() => onViewModeChange('desktop')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-full transition-colors cursor-pointer ${
                     viewMode === 'desktop'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-slate-600 hover:text-slate-800'
                   }`}
                 >
-                  Desktop
+                  <span className="hidden sm:inline">Desktop</span>
+                  <span className="sm:hidden">D</span>
                 </button>
                 <button
                   onClick={() => onViewModeChange('mobile')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-full transition-colors cursor-pointer ${
                     viewMode === 'mobile'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-slate-600 hover:text-slate-800'
                   }`}
                 >
-                  Mobile
+                  <span className="hidden sm:inline">Mobile</span>
+                  <span className="sm:hidden">M</span>
                 </button>
               </div>
-              {/* Expand to Fullscreen Button */}
+              {/* Expand to Fullscreen Button - Responsive */}
               <button
                 onClick={handleExpand}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-all duration-200 hover:border-blue-500 hover:text-blue-600 shadow-sm hover:shadow-md"
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-all duration-200 hover:border-blue-500 hover:text-blue-600 shadow-sm hover:shadow-md cursor-pointer"
                 title="Expand to fullscreen"
                 aria-label="Expand preview to fullscreen"
               >
-                <Maximize2 className="w-4 h-4" />
-                <span>Expand</span>
+                <Maximize2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Expand</span>
               </button>
             </div>
           </div>
         </div>
         
         {/* Preview Content */}
-        <div className="bg-slate-100 p-4">
+        <div className="bg-slate-100 p-2 sm:p-4 overflow-hidden">
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
         {viewMode === 'desktop' ? (
           <div 
@@ -745,17 +782,18 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                   padding: '56px 8px'
                 }}
               >
-                {/* Wrap container - exact match from script */}
+                {/* Wrap container - wider for desktop preview */}
                 <div 
                   style={{
                     width: '100%',
-                    maxWidth: '520px',
+                    maxWidth: '680px',
                     background: formBg,
                     backdropFilter: 'saturate(180%) blur(8px)',
                     border: '1px solid #e5e7eb',
                     borderRadius: '16px',
                     boxShadow: '0 20px 30px -15px rgba(0,0,0,.2)',
-                    padding: '28px'
+                    padding: '28px',
+                    boxSizing: 'border-box'
                   }}
                 >
                   <FormContent />
@@ -800,7 +838,8 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
                     border: '1px solid #e5e7eb',
                     borderRadius: '16px',
                     boxShadow: '0 20px 30px -15px rgba(0,0,0,.2)',
-                    padding: '28px'
+                    padding: '16px',
+                    boxSizing: 'border-box'
                   }}
                 >
                   <FormContent />

@@ -9,6 +9,7 @@ import {
 import { useSession } from '@/context/session';
 import { useToast } from '@/components/common/Toast';
 import TestEmailModal from '@/components/TestEmailModal';
+import { getUserFriendlyError } from '@/lib/utils';
 
 type TemplateKey = 'signup' | 'approval' | 'rejection' | 'moreInfo';
 
@@ -644,8 +645,8 @@ const EmailTemplates: React.FC = () => {
         body: JSON.stringify({ templates: toSave }),
       });
       toast.showSuccess('Templates saved successfully!');
-    } catch {
-      toast.showError('Failed to save templates');
+    } catch (error: unknown) {
+      toast.showError(getUserFriendlyError(error, 'Unable to save the email templates. Please try again.'));
     } finally {
       setSaving(false);
     }

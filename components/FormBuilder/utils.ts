@@ -102,7 +102,7 @@ export const ensureCoreFields = (fields: FormField[]): FormField[] => {
         required: true,
         labelColor: '#1f2937',
         labelSize: '14',
-        labelWeight: '600',
+        labelWeight: '500',
         borderColor: '#d1d5db',
         borderWidth: '1',
         borderRadius: '6',

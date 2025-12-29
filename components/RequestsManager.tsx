@@ -25,6 +25,7 @@ const RequestsManager: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'' | 'pending' | 'approved' | 'rejected'>('');
   const [searchFilter, setSearchFilter] = useState('');
   const [selected, setSelected] = useState<RequestItem | null>(null);
+  const [displayedCount, setDisplayedCount] = useState(12);
   const pageSize = 10;
 
   // Approval dialog state
@@ -59,6 +60,11 @@ const RequestsManager: React.FC = () => {
       const newItems = replace ? items : [...allItems, ...items];
       setAllItems(newItems);
       setNextCursor(nextCursor);
+      
+      // If loading more items (not replacing), increase displayedCount to show new items
+      if (!replace && items.length > 0) {
+        setDisplayedCount(prev => prev + items.length);
+      }
     } catch (e) {
       // noop simple UI
     } finally {
@@ -70,6 +76,7 @@ const RequestsManager: React.FC = () => {
     // initial load and when filter changes
     setAllItems([]);
     setNextCursor(null);
+    setDisplayedCount(12); // Reset displayed count when filter changes
     load(null, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, context]);
@@ -245,6 +252,21 @@ const RequestsManager: React.FC = () => {
     
     return filtered;
   }, [allItems, searchFilter]);
+
+  // Pagination: show only first displayedCount items
+  const displayedItems = filteredItems.slice(0, displayedCount);
+  const hasMore = filteredItems.length > displayedCount;
+
+  // Reset displayed count when search filter changes (but not when status filter changes, as that's handled above)
+  useEffect(() => {
+    if (searchFilter !== '') {
+      setDisplayedCount(12);
+    }
+  }, [searchFilter]);
+
+  const handleLoadMore = () => {
+    setDisplayedCount(prev => prev + 12);
+  };
   const remove = async (id: string) => {
     if (!context) return;
     setConfirmDialog({
@@ -360,7 +382,7 @@ const RequestsManager: React.FC = () => {
           </div>
           {searchFilter && (
             <div className="text-xs text-gray-600 whitespace-nowrap">
-              <span className="font-semibold text-gray-900">{filteredItems.length}</span> of <span className="font-semibold text-gray-900">{allItems.length}</span> results
+              <span className="font-semibold text-gray-900">{displayedItems.length}</span> of <span className="font-semibold text-gray-900">{filteredItems.length}</span> results
             </div>
           )}
         </div>
@@ -379,7 +401,7 @@ const RequestsManager: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredItems.map(request => {
+              {displayedItems.map(request => {
                 const name = extractName(request.data);
                 const email = extractEmail(request);
                 return (
@@ -407,7 +429,7 @@ const RequestsManager: React.FC = () => {
                   </tr>
                 );
               })}
-              {!filteredItems.length && !loading && (
+              {!displayedItems.length && !loading && (
                 <tr><td className="px-6 py-8 text-center text-gray-500" colSpan={5}>
                   {allItems.length === 0 ? 'No requests found.' : 'No requests match your filters.'}
                 </td></tr>
@@ -415,18 +437,51 @@ const RequestsManager: React.FC = () => {
             </tbody>
           </table>
         </div>
-        <div className="p-4 border-t border-gray-100 flex items-center justify-between">
-          <div className="text-sm text-gray-500">
-            {filteredItems.length} {filteredItems.length === 1 ? 'request' : 'requests'} shown
-            {filteredItems.length !== allItems.length && ` (${allItems.length} total loaded)`}
-          </div>
-          <button
-            onClick={() => load(nextCursor || undefined)}
-            disabled={loading || !nextCursor}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${nextCursor ? 'bg-gray-800 text-white hover:bg-gray-900' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
-          >
-            {loading ? 'Loading…' : (nextCursor ? 'Load More' : 'No More')}
-          </button>
+        <div className="p-4 border-t border-gray-100">
+          {/* Count Display */}
+          {allItems.length > 0 && (
+            <div className="flex items-center justify-between text-sm text-slate-600 mb-4">
+              <span className="font-medium">
+                Showing <span className="text-slate-900 font-semibold">{displayedItems.length}</span> out of{' '}
+                <span className="text-slate-900 font-semibold">{filteredItems.length}</span> requests
+              </span>
+            </div>
+          )}
+
+          {/* Load More Button - Only show if there are more items to display from already loaded items */}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleLoadMore();
+                }}
+                className="px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 active:scale-[0.98] transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md cursor-pointer"
+              >
+                Load More
+              </button>
+            </div>
+          )}
+
+          {/* API Load More Button - Only show if all loaded items are displayed and there are more items from API */}
+          {!hasMore && nextCursor && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  load(nextCursor || undefined);
+                }}
+                disabled={loading || !nextCursor}
+                className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${nextCursor && !loading ? 'bg-slate-900 text-white hover:bg-slate-800 active:scale-[0.98] shadow-sm hover:shadow-md cursor-pointer' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+              >
+                {loading ? 'Loading…' : 'Load More from Server'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

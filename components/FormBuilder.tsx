@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { FilePlus, Wrench, FileText } from 'lucide-react';
 import { useBcScriptsActions, useStoreForm, useStoreFormActions, useFormVersionActions, useFormVersions } from '@/lib/hooks';
 import Skeleton from '@/components/Skeleton';
@@ -8,6 +9,7 @@ import VersionsList from '@/components/VersionsList';
 import LoadVersionConfirmModal from '@/components/LoadVersionConfirmModal';
 import { useToast } from '@/components/common/Toast';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { getUserFriendlyError } from '@/lib/utils';
 import UnsavedChangesModal from '@/components/UnsavedChangesModal';
 import SaveModal from '@/components/SaveModal';
 import { FormField, FieldType } from './FormBuilder/types';
@@ -19,6 +21,9 @@ import FieldEditorPopup from './FormBuilder/FieldEditorPopup';
 import ThemeEditorPopup from './FormBuilder/ThemeEditorPopup';
 
 const FormBuilder: React.FC = () => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [selectedField, setSelectedField] = useState<FormField | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -32,8 +37,40 @@ const FormBuilder: React.FC = () => {
   const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
   const [draggedFieldId, setDraggedFieldId] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  // Initialize activeTab from sessionStorage if returning from preview, otherwise default to 2 (Forms tab)
-  const [activeTab, setActiveTab] = useState<number>(() => {
+  
+  // Compute initial tab synchronously using useMemo to avoid flicker
+  // Priority: URL param > sessionStorage (preview) > default (Forms = 1)
+  const initialTab = useMemo(() => {
+    // First, check URL parameter from useSearchParams (most reliable in Next.js)
+    try {
+      const tabParam = searchParams.get('tab');
+      if (tabParam) {
+        const tabNum = parseInt(tabParam, 10);
+        if (tabNum === 1 || tabNum === 2) {
+          return tabNum;
+        }
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+    
+    // Fallback: check window.location if useSearchParams didn't work
+    if (typeof window !== 'undefined') {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        if (tabParam) {
+          const tabNum = parseInt(tabParam, 10);
+          if (tabNum === 1 || tabNum === 2) {
+            return tabNum;
+          }
+        }
+      } catch (error) {
+        // Ignore errors
+      }
+    }
+    
+    // Check sessionStorage for preview restoration
     try {
       const storedData = sessionStorage.getItem('previewFormData');
       if (storedData) {
@@ -45,8 +82,12 @@ const FormBuilder: React.FC = () => {
     } catch (error) {
       // Ignore errors
     }
-    return 2; // Default to Forms tab
-  });
+    return 1; // Default to Forms tab
+  }, [searchParams]);
+  
+  const [activeTab, setActiveTab] = useState<number>(initialTab);
+  const hasInitializedFromUrl = useRef<boolean>(false);
+  const isUserTabSwitch = useRef<boolean>(false);
   const [showLoadVersionConfirm, setShowLoadVersionConfirm] = useState<boolean>(false);
   const [pendingVersion, setPendingVersion] = useState<any>(null);
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState<boolean>(false);
@@ -72,6 +113,40 @@ const FormBuilder: React.FC = () => {
   const { saveForm, setActive } = useStoreFormActions();
   const { saveAsVersion, updateVersion } = useFormVersionActions();
   const { versions, mutate: mutateVersions } = useFormVersions();
+
+  // Mark as initialized immediately since we computed initialTab from searchParams
+  // This prevents the useEffect from overriding the correct initial value
+  useEffect(() => {
+    hasInitializedFromUrl.current = true;
+  }, []);
+  
+  // Handle URL changes after initial mount (for navigation)
+  // Only update if URL param differs from current tab and we're not restoring from preview
+  // Skip if the tab change was user-initiated (to avoid fighting with handleTabSwitch)
+  useEffect(() => {
+    // Skip if restoring from preview (let that logic handle the tab)
+    if (restoredFromPreviewRef.current) {
+      return;
+    }
+    
+    // Skip if this was a user-initiated tab switch (we'll update URL in handleTabSwitch)
+    if (isUserTabSwitch.current) {
+      isUserTabSwitch.current = false;
+      return;
+    }
+    
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      const tabNum = parseInt(tabParam, 10);
+      if ((tabNum === 1 || tabNum === 2) && tabNum !== activeTab) {
+        setActiveTab(tabNum);
+      }
+    } else if (activeTab !== 1) {
+      // If no tab param but we're not on tab 1, sync to tab 1 (default)
+      // But only if this wasn't a user-initiated change
+      setActiveTab(1);
+    }
+  }, [searchParams, activeTab]);
 
   // Persist form builder state to sessionStorage for preview restoration
   useEffect(() => {
@@ -466,7 +541,7 @@ const FormBuilder: React.FC = () => {
       // The useEffect will automatically update the name if it matches a version
       toast.showSuccess('Form saved.');
     } catch (e: unknown) {
-      toast.showError('Failed to save form: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      toast.showError(getUserFriendlyError(e, 'Unable to save the form. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -549,15 +624,11 @@ const FormBuilder: React.FC = () => {
       
       toast.showSuccess('Form saved.');
       
-      // Switch to Forms tab first, then clear builder state after a brief delay
-      // This prevents form preview from briefly showing default theme colors
-      setActiveTab(2);
-      // Use setTimeout to clear state after tab switch is complete
-      setTimeout(() => {
-        clearBuilderState();
-      }, 0);
+      // Clear builder state and redirect to Forms tab after successful save
+      clearBuilderState();
+      updateTabAndUrl(1);
     } catch (e: unknown) {
-      toast.showError('Failed to save form: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      toast.showError(getUserFriendlyError(e, 'Unable to save the form. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -592,15 +663,11 @@ const FormBuilder: React.FC = () => {
       await mutateVersions();
       toast.showSuccess('Form saved as new.');
       
-      // Switch to Forms tab first, then clear builder state after a brief delay
-      // This prevents form preview from briefly showing default theme colors
-      setActiveTab(2);
-      // Use setTimeout to clear state after tab switch is complete
-      setTimeout(() => {
-        clearBuilderState();
-      }, 0);
+      // Clear builder state and switch to Forms tab after successful save
+      clearBuilderState();
+      updateTabAndUrl(1);
     } catch (e: unknown) {
-      toast.showError('Failed to save: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      toast.showError(getUserFriendlyError(e, 'Unable to save the form. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -658,8 +725,8 @@ const FormBuilder: React.FC = () => {
       toast.showSuccess('New form created.');
     }
     // Switch to Builder tab if not already there
-    if (activeTab !== 1) {
-      setActiveTab(1);
+    if (activeTab !== 2) {
+      updateTabAndUrl(2);
     }
   }
 
@@ -719,7 +786,7 @@ const FormBuilder: React.FC = () => {
     
     // Switch to Builder tab if requested
     if (goToBuilder) {
-      setActiveTab(1);
+      updateTabAndUrl(2);
     }
     
     setShowLoadVersionConfirm(false);
@@ -766,21 +833,42 @@ const FormBuilder: React.FC = () => {
     setIsEditingName(false);
   }
 
+  // Helper function to update tab and URL together
+  function updateTabAndUrl(newTab: number, skipUrlUpdate = false) {
+    setActiveTab(newTab);
+    
+    if (!skipUrlUpdate) {
+      const currentParams = new URLSearchParams(searchParams.toString());
+      if (newTab === 1) {
+        // Remove tab param for Forms tab (default)
+        currentParams.delete('tab');
+      } else {
+        currentParams.set('tab', newTab.toString());
+      }
+      const newSearch = currentParams.toString();
+      const newUrl = newSearch ? `${pathname}?${newSearch}` : pathname;
+      router.replace(newUrl, { scroll: false });
+    }
+  }
+
   function handleTabSwitch(newTab: number) {
+    // Mark as user-initiated to prevent useEffect from overriding
+    isUserTabSwitch.current = true;
+    
     // Only show unsaved changes modal if form has been initialized and has changes
     if (isDirty && hasInitializedForm && formFields.length > 0 && activeTab !== newTab) {
       setPendingTabSwitch(newTab);
       setShowUnsavedChangesModal(true);
     } else {
-      // When switching to Forms tab (tab 2), always clear builder state
-      if (newTab === 2) {
+      // When switching to Forms tab (tab 1), always clear builder state
+      if (newTab === 1) {
         clearBuilderState();
       }
       
-      setActiveTab(newTab);
+      updateTabAndUrl(newTab);
       
       // When switching to Builder tab and not editing, reset to empty state
-      if (newTab === 1 && !isEditing && !hasInitializedForm) {
+      if (newTab === 2 && !isEditing && !hasInitializedForm) {
         clearBuilderState();
       }
     }
@@ -879,17 +967,14 @@ const FormBuilder: React.FC = () => {
       const targetTab = pendingTabSwitch;
       setPendingTabSwitch(null);
       
-      setActiveTab(targetTab);
-      
-      // If switching to Forms tab (tab 2), clear builder state after tab switch
-      // This prevents form preview from briefly showing default theme colors
-      if (targetTab === 2) {
-        setTimeout(() => {
-          clearBuilderState();
-        }, 0);
+      // If switching to Forms tab (tab 1), clear builder state
+      if (targetTab === 1) {
+        clearBuilderState();
       }
+      
+      updateTabAndUrl(targetTab);
     } catch (e: unknown) {
-      toast.showError('Failed to save: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      toast.showError(getUserFriendlyError(e, 'Unable to save the form. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -931,17 +1016,14 @@ const FormBuilder: React.FC = () => {
       const targetTab = pendingTabSwitch;
       setPendingTabSwitch(null);
       
-      setActiveTab(targetTab);
-      
-      // If switching to Forms tab (tab 2), clear builder state after tab switch
-      // This prevents form preview from briefly showing default theme colors
-      if (targetTab === 2) {
-        setTimeout(() => {
-          clearBuilderState();
-        }, 0);
+      // If switching to Forms tab (tab 1), clear builder state
+      if (targetTab === 1) {
+        clearBuilderState();
       }
+      
+      updateTabAndUrl(targetTab);
     } catch (e: unknown) {
-      toast.showError('Failed to save: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      toast.showError(getUserFriendlyError(e, 'Unable to save the form. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -955,13 +1037,9 @@ const FormBuilder: React.FC = () => {
     setPendingTabSwitch(null);
     setShowUnsavedChangesModal(false);
     
-    // If switching to Forms tab (tab 2), always clear builder state after tab switch
-    // This prevents form preview from briefly showing default theme colors
-    if (targetTab === 2) {
-      setActiveTab(targetTab);
-      setTimeout(() => {
-        clearBuilderState();
-      }, 0);
+    // If switching to Forms tab (tab 1), always clear builder state
+    if (targetTab === 1) {
+      clearBuilderState();
     } else {
       // Fully discard all unsaved changes and reset to clean state
       if (!lastSavedState) {
@@ -988,7 +1066,7 @@ const FormBuilder: React.FC = () => {
       }
       
       // If switching to Builder tab and not editing, ensure default state
-      if (targetTab === 1 && !isEditing) {
+      if (targetTab === 2 && !isEditing) {
         setFormFields([]);
         setTheme(defaultTheme);
         setLastSavedState(null);
@@ -999,7 +1077,7 @@ const FormBuilder: React.FC = () => {
     }
     
     // Switch to target tab
-    setActiveTab(targetTab);
+    updateTabAndUrl(targetTab);
     toast.showSuccess('Changes discarded.');
   }
 
@@ -1028,7 +1106,7 @@ const FormBuilder: React.FC = () => {
           .catch((e: any) => {
             // Revert on error
             setCurrentFormName(previousName);
-            toast.showError('Failed to save name: ' + (e instanceof Error ? e.message : 'Unknown error'));
+            toast.showError(getUserFriendlyError(e, 'Unable to save the form name. Please try again.'));
           });
       } else {
         // If it's unnamed and no version ID exists, just update the name in state
@@ -1040,7 +1118,7 @@ const FormBuilder: React.FC = () => {
     } catch (e: any) {
       // Revert on error
       setCurrentFormName(previousName);
-      toast.showError('Failed to save name: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      toast.showError(getUserFriendlyError(e, 'Unable to save the form name. Please try again.'));
     }
   }
 
@@ -1049,40 +1127,183 @@ const FormBuilder: React.FC = () => {
   // Show skeleton only while loading (form is undefined and not an error)
   // If form is null, it means no form exists yet, so we'll initialize with defaults in useEffect
   if ((form === undefined || isLoading) && !isError) {
-    return (
-      <div className="grid grid-cols-12 gap-6 h-full">
-        <div className="col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <Skeleton className="h-5 w-32 mb-3" />
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-8 w-full" />
-            ))}
+    // Show different skeleton based on active tab
+    if (activeTab === 2) {
+      // Builder tab skeleton - matching actual structure
+      return (
+        <div className="space-y-4 h-full flex flex-col">
+          {/* Top Action Bar Skeleton */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 animate-pulse">
+            <div className="px-6 py-4 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+              {/* Left Section - Form Name */}
+              <div className="flex items-center gap-4">
+                <div className="h-7 bg-slate-200 rounded w-48" />
+                <div className="h-6 bg-amber-200 rounded w-32" />
+              </div>
+              {/* Right Section - Save Button */}
+              <div className="flex items-center gap-2">
+                <div className="h-10 bg-slate-200 rounded-lg w-24" />
+              </div>
+            </div>
           </div>
-          <Skeleton className="h-6 w-40 mb-4" />
-          <div className="space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="p-3 rounded-lg border-2 border-gray-100">
-                <Skeleton className="h-4 w-48 mb-2" />
-                <Skeleton className="h-3 w-20" />
+
+          {/* Main Content Area */}
+          <div className="flex-1 flex gap-6 overflow-hidden">
+            {/* Left Sidebar Skeleton */}
+            <div className="w-[25%] min-w-[280px] bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 h-full overflow-hidden animate-pulse">
+              {/* Sidebar Header */}
+              <div className="bg-gradient-to-r from-slate-50 to-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-slate-200 rounded-lg" />
+                  <div className="h-5 bg-slate-200 rounded w-24" />
+                </div>
+                <div className="w-5 h-5 bg-slate-200 rounded" />
+              </div>
+              
+              {/* Sidebar Content */}
+              <div className="p-6 space-y-6">
+                {/* Add New Field Section */}
+                <div>
+                  <div className="h-4 bg-slate-200 rounded w-32 mb-4" />
+                  <div className="space-y-3">
+                    {/* Basic Inputs */}
+                    <div>
+                      <div className="h-3 bg-slate-200 rounded w-24 mb-2" />
+                      <div className="grid grid-cols-2 gap-2">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="h-8 bg-slate-200 rounded-lg" />
+                        ))}
+                      </div>
+                    </div>
+                    {/* Selection Fields */}
+                    <div>
+                      <div className="h-3 bg-slate-200 rounded w-28 mb-2" />
+                      <div className="grid grid-cols-2 gap-2">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="h-8 bg-slate-200 rounded-lg" />
+                        ))}
+                      </div>
+                    </div>
+                    {/* Address Fields */}
+                    <div>
+                      <div className="h-3 bg-slate-200 rounded w-28 mb-2" />
+                      <div className="grid grid-cols-2 gap-2">
+                        {[1, 2].map((i) => (
+                          <div key={i} className="h-8 bg-slate-200 rounded-lg" />
+                        ))}
+                      </div>
+                    </div>
+                    {/* Special Fields */}
+                    <div>
+                      <div className="h-3 bg-slate-200 rounded w-24 mb-2" />
+                      <div className="grid grid-cols-2 gap-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="h-8 bg-slate-200 rounded-lg" />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Edit Theme Button */}
+                <div className="pt-4">
+                  <div className="h-10 bg-gradient-to-r from-purple-200 to-pink-200 rounded-lg" />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Preview Area Skeleton */}
+            <div className="flex-1 h-full overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col animate-pulse">
+                {/* Live Preview Header */}
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 bg-slate-200 rounded" />
+                    <div>
+                      <div className="h-5 bg-slate-200 rounded w-32 mb-1" />
+                      <div className="h-3 bg-slate-200 rounded w-48" />
+                    </div>
+                  </div>
+                  {/* Device View Toggles */}
+                  <div className="flex items-center gap-2">
+                    <div className="h-9 bg-blue-200 rounded-lg w-20" />
+                    <div className="h-9 bg-slate-200 rounded-lg w-20" />
+                    <div className="h-9 bg-slate-200 rounded-lg w-20" />
+                  </div>
+                </div>
+                
+                {/* Preview Content */}
+                <div className="flex-1 p-8 overflow-y-auto">
+                  <div className="space-y-4">
+                    {/* Form Title */}
+                    <div className="h-7 bg-slate-200 rounded w-48" />
+                    {/* Form Subtitle */}
+                    <div className="h-4 bg-slate-200 rounded w-64 mb-6" />
+                    {/* Form Fields */}
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="h-4 bg-slate-200 rounded w-32" />
+                        <div className="h-10 bg-slate-200 rounded-lg" />
+                      </div>
+                    ))}
+                    {/* Submit Button */}
+                    <div className="h-12 bg-slate-200 rounded-lg mt-4" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+      // Forms tab skeleton - matching VersionsList structure
+      return (
+        <div className="space-y-6">
+          {/* Top Row Skeleton - New Form Button and Activated Form Status */}
+          <div className="flex items-center justify-between animate-pulse">
+            <div className="h-10 bg-slate-200 rounded-lg w-32" />
+            <div className="h-9 bg-slate-200 rounded-lg w-64" />
+          </div>
+
+          {/* Header Section Skeleton */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-6 sm:p-8 animate-pulse">
+            <div className="space-y-6">
+              {/* Title Row */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
+                <div>
+                  <div className="h-8 bg-slate-700 rounded w-48 mb-2" />
+                  <div className="h-4 bg-slate-700 rounded w-64" />
+                </div>
+              </div>
+              
+              {/* Search Bar and View Toggle */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <div className="h-12 bg-slate-700/50 rounded-xl" />
+                </div>
+                <div className="flex items-center gap-2 bg-slate-700/30 p-1 rounded-xl w-24">
+                  <div className="h-10 bg-slate-600 rounded-lg w-10" />
+                  <div className="h-10 bg-slate-600 rounded-lg w-10" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Forms Grid Skeleton - 12 cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+              <div key={i} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-pulse">
+                <div className="h-48 bg-slate-200" />
+                <div className="p-4 space-y-3">
+                  <div className="h-4 bg-slate-200 rounded w-3/4" />
+                  <div className="h-3 bg-slate-200 rounded w-1/2" />
+                </div>
               </div>
             ))}
           </div>
         </div>
-        <div className="col-span-9">
-          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-            <Skeleton className="h-6 w-32 mb-6" />
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i}>
-                  <Skeleton className="h-4 w-40 mb-2" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+      );
+    }
   }
 
   // Show error message if there's an error
@@ -1093,7 +1314,7 @@ const FormBuilder: React.FC = () => {
           <p className="text-red-600 mb-4">Failed to load form data</p>
           <button
             onClick={() => mutateStoreForm()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
           >
             Retry
           </button>
@@ -1286,78 +1507,81 @@ const FormBuilder: React.FC = () => {
   return (
     <div className="h-full flex flex-col">
       {/* Modern Tabs Headers - Always on top */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0">
+        <div className="flex items-center gap-1 sm:gap-2 p-0.5 sm:p-1 bg-slate-100 rounded-lg sm:rounded-2xl w-fit overflow-x-auto">
           <button
             onClick={() => handleTabSwitch(1)}
-            className={`relative flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-all duration-300 rounded-xl focus:outline-none group ${
+            className={`relative flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 md:px-5 py-1.5 sm:py-2 md:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 rounded-lg sm:rounded-xl focus:outline-none group cursor-pointer flex-shrink-0 ${
               activeTab === 1
                 ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 scale-[1.02]"
                 : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/80"
             }`}
           >
-            <Wrench className={`w-4 h-4 transition-all duration-300 relative z-10 ${
+            <FileText className={`w-3 h-3 sm:w-4 sm:h-4 transition-all duration-300 relative z-10 ${
               activeTab === 1 
                 ? "text-white" 
                 : "text-slate-600 group-hover:text-slate-800"
             } ${activeTab === 1 ? "scale-110" : "group-hover:scale-110"}`} />
-            <span className="relative z-10">Builder</span>
+            <span className="relative z-10 whitespace-nowrap">Forms</span>
           </button>
           <button
             onClick={() => handleTabSwitch(2)}
-            className={`relative flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-all duration-300 rounded-xl focus:outline-none group ${
+            className={`relative flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 md:px-5 py-1.5 sm:py-2 md:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 rounded-lg sm:rounded-xl focus:outline-none group cursor-pointer flex-shrink-0 ${
               activeTab === 2
                 ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 scale-[1.02]"
                 : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/80"
             }`}
           >
-            <FileText className={`w-4 h-4 transition-all duration-300 relative z-10 ${
+            <Wrench className={`w-3 h-3 sm:w-4 sm:h-4 transition-all duration-300 relative z-10 ${
               activeTab === 2 
                 ? "text-white" 
                 : "text-slate-600 group-hover:text-slate-800"
             } ${activeTab === 2 ? "scale-110" : "group-hover:scale-110"}`} />
-            <span className="relative z-10">Forms</span>
+            <span className="relative z-10 whitespace-nowrap">Builder</span>
           </button>
         </div>
         
         {/* Global Actions - Top Right */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 flex-shrink-0 min-w-0">
           {/* New Form Button - Only show in Forms tab, not Builder tab */}
-          {activeTab !== 1 && (
+          {activeTab !== 2 && (
             <button
               onClick={handleCreateNewForm}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm active:scale-[0.98]"
+              className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm active:scale-[0.98] cursor-pointer whitespace-nowrap"
               title="Create a new form"
             >
-              <FilePlus className="w-4 h-4" />
-              <span>New Form</span>
+              <FilePlus className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">New Form</span>
             </button>
           )}
 
           {/* Active Form Indicator */}
           <div 
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-gray-50 ${
+            className={`flex items-center flex-nowrap gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg font-medium cursor-pointer transition-all hover:bg-gray-50 min-w-0 ${
               active 
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                 : 'bg-slate-100 text-slate-600 border border-slate-200'
             }`}
             onClick={() => {
-              if (activeTab !== 2) {
-                handleTabSwitch(2);
+              if (activeTab !== 1) {
+                handleTabSwitch(1);
               }
             }}
             title={active ? 'Activated form - Click to view in Forms' : 'No form activated - Click to view in Forms'}
           >
             {active ? (
               <>
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>Activated Form:</span>
-                <span className="font-semibold">{activeVersionName || 'Unknown'}</span>
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate min-w-0">
+                  <span className="flex-shrink-0">Active Form: </span>
+                  <span className="font-semibold">{activeVersionName || 'Unknown'}</span>
+                </span>
               </>
             ) : (
               <>
-                <div className="w-2 h-2 rounded-full bg-slate-400" />
-                <span>No form is currently activate</span>
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-400 flex-shrink-0" />
+                <span className="text-[9px] sm:text-[10px] md:text-xs hidden sm:inline whitespace-nowrap">No form is currently activate</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs sm:hidden whitespace-nowrap">Inactive</span>
               </>
             )}
           </div>
@@ -1365,7 +1589,7 @@ const FormBuilder: React.FC = () => {
       </div>
 
       {/* Top Action Bar - Only show in Builder tab when form has fields and not restoring */}
-      {activeTab === 1 && formFields.length > 0 && !isRestoring && (
+      {activeTab === 2 && formFields.length > 0 && !isRestoring && (
         <TopActionBar
           currentFormName={currentFormName}
           isEditingName={isEditingName}
@@ -1403,7 +1627,7 @@ const FormBuilder: React.FC = () => {
 
       {/* Tab Content Area */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === 1 ? (
+        {activeTab === 2 ? (
           <BuilderTab
             formFields={formFields}
             theme={theme}
@@ -1438,9 +1662,9 @@ const FormBuilder: React.FC = () => {
               await mutateVersions(undefined, { revalidate: true });
               console.log('[FormBuilder] onVersionLoaded callback - refresh complete');
             }}
-            onNavigateToBuilder={() => handleTabSwitch(1)}
-            currentFormFields={isEditing && activeTab === 1 ? formFields : undefined}
-            currentTheme={isEditing && activeTab === 1 ? theme : undefined}
+            onNavigateToBuilder={() => handleTabSwitch(2)}
+            currentFormFields={formFields}
+            currentTheme={theme}
             currentFormVersionId={currentFormVersionId}
           />
         )}

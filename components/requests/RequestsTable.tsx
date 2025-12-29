@@ -22,18 +22,35 @@ export interface RequestsTableProps {
   headerSubtitle?: string;
   headerAction?: React.ReactNode;
   footer?: React.ReactNode;
+  skeletonRows?: number;
 }
 
 // Utility functions
 const extractName = (data: Record<string, unknown>): string => {
   const entries = Object.entries(data || {});
-  const candidates = ['name', 'full_name', 'full name', 'first_name', 'first name'];
-  for (const key of candidates) {
+  
+  // Try full name first
+  const fullNameCandidates = ['name', 'full_name', 'full name'];
+  for (const key of fullNameCandidates) {
     const found = entries.find(([k]) => k.toLowerCase() === key);
-    if (found) return String(found[1] ?? '');
+    if (found && found[1]) return String(found[1]).trim();
   }
+  
+  // Try to combine first and last name
+  const firstKey = entries.find(([k]) => /first[\s_-]?name/i.test(k));
+  const lastKey = entries.find(([k]) => /last[\s_-]?name/i.test(k));
+  if (firstKey && lastKey) {
+    const firstName = String(firstKey[1] ?? '').trim();
+    const lastName = String(lastKey[1] ?? '').trim();
+    if (firstName || lastName) {
+      return `${firstName} ${lastName}`.trim();
+    }
+  }
+  
+  // Fallback to any field containing 'name'
   const fuzzy = entries.find(([k]) => /name/i.test(k));
-  if (fuzzy) return String(fuzzy[1] ?? '');
+  if (fuzzy && fuzzy[1]) return String(fuzzy[1]).trim();
+  
   return '';
 };
 
@@ -100,13 +117,62 @@ const formatRelativeTime = (ts?: { seconds?: number; nanoseconds?: number } | st
   return `${diffYears} year${diffYears === 1 ? '' : 's'} ago`;
 };
 
-const LoadingSpinner = () => (
-  <div className="flex flex-col items-center justify-center py-20">
-    <div className="relative">
-      <div className="w-12 h-12 border-4 border-slate-200 rounded-full" />
-      <div className="absolute top-0 left-0 w-12 h-12 border-4 border-transparent border-t-blue-500 rounded-full animate-spin" />
+const SkeletonRow = () => (
+  <tr className="border-b border-slate-100 last:border-b-0">
+    <td className="px-6 py-4">
+      <div className="flex items-center gap-4">
+        <div className="w-11 h-11 rounded-full bg-slate-200 animate-pulse" />
+        <div className="h-5 w-32 bg-slate-200 rounded animate-pulse" />
+      </div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 w-40 bg-slate-200 rounded animate-pulse" />
+    </td>
+    <td className="px-6 py-4">
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 bg-slate-200 rounded animate-pulse" />
+        <div className="h-4 w-24 bg-slate-200 rounded animate-pulse" />
+      </div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-7 w-20 bg-slate-200 rounded-lg animate-pulse" />
+    </td>
+    <td className="px-6 py-4 text-right">
+      <div className="h-10 w-24 bg-slate-200 rounded-xl animate-pulse ml-auto" />
+    </td>
+  </tr>
+);
+
+const SkeletonLoader = ({ count = 5 }: { count?: number }) => (
+  <>
+    {Array.from({ length: count }).map((_, index) => (
+      <SkeletonRow key={index} />
+    ))}
+  </>
+);
+
+const MobileSkeletonRow = () => (
+  <div className="bg-white border border-slate-200/60 rounded-lg sm:rounded-xl p-3 sm:p-4">
+    <div className="flex items-start gap-2.5 sm:gap-3 mb-2.5 sm:mb-3">
+      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-slate-200 animate-pulse" />
+      <div className="flex-1 min-w-0">
+        <div className="h-4 w-32 bg-slate-200 rounded animate-pulse mb-2" />
+        <div className="h-3 w-40 bg-slate-200 rounded animate-pulse mb-2" />
+        <div className="h-6 w-20 bg-slate-200 rounded-lg animate-pulse" />
+      </div>
     </div>
-    <p className="mt-4 text-sm text-slate-500 font-medium">Loading requests...</p>
+    <div className="flex items-center justify-between pt-2.5 sm:pt-3 border-t border-slate-100">
+      <div className="h-3 w-24 bg-slate-200 rounded animate-pulse" />
+      <div className="h-8 w-20 bg-slate-200 rounded-lg animate-pulse" />
+    </div>
+  </div>
+);
+
+const MobileSkeletonLoader = ({ count = 5 }: { count?: number }) => (
+  <div className="p-2.5 sm:p-3 md:p-4 space-y-2.5 sm:space-y-3">
+    {Array.from({ length: count }).map((_, index) => (
+      <MobileSkeletonRow key={index} />
+    ))}
   </div>
 );
 
@@ -121,6 +187,7 @@ const RequestsTable: React.FC<RequestsTableProps> = ({
   headerSubtitle = 'Manage and review all signup submissions',
   headerAction,
   footer,
+  skeletonRows = 5,
 }) => {
   return (
     <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/50 overflow-hidden">
@@ -149,7 +216,7 @@ const RequestsTable: React.FC<RequestsTableProps> = ({
       {/* Mobile Card View */}
       <div className="md:hidden">
         {loading ? (
-          <LoadingSpinner />
+          <MobileSkeletonLoader count={skeletonRows} />
         ) : requests.length === 0 ? (
           <div className="px-3 sm:px-4 py-16 sm:py-20 text-center">
             <div className="flex flex-col items-center">
@@ -264,11 +331,7 @@ const RequestsTable: React.FC<RequestsTableProps> = ({
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={5}>
-                  <LoadingSpinner />
-                </td>
-              </tr>
+              <SkeletonLoader count={skeletonRows} />
             ) : requests.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-20 text-center">
@@ -299,14 +362,14 @@ const RequestsTable: React.FC<RequestsTableProps> = ({
                       opacity: 0 
                     }}
                   >
-                    <td className="px-4 lg:px-6 py-3 lg:py-4">
-                      <div className="flex items-center gap-3 lg:gap-4">
-                        <div className={`relative w-10 h-10 lg:w-11 lg:h-11 rounded-xl bg-gradient-to-br ${avatarGradient} flex items-center justify-center text-white font-semibold text-xs lg:text-sm shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300`}>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`relative w-11 h-11 rounded-full bg-gradient-to-br ${avatarGradient} flex items-center justify-center text-white font-semibold text-sm shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300`}>
                           {initials}
-                          <div className="absolute inset-0 rounded-xl ring-2 ring-white/50" />
+                          <div className="absolute inset-0 rounded-full ring-2 ring-white/50" />
                         </div>
-                        <div>
-                          <div className="font-semibold text-sm lg:text-base text-slate-800 group-hover:text-blue-600 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-slate-800 group-hover:text-blue-600 transition-colors truncate">
                             {name || 'Unknown'}
                           </div>
                         </div>

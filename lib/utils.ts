@@ -135,3 +135,105 @@ export function isValidEmail(email: string): boolean {
   return emailRegex.test(email.trim().toLowerCase());
 }
 
+/**
+ * Convert technical error messages to user-friendly messages
+ * Removes technical details like HTTP status codes, stack traces, and internal error details
+ */
+export function getUserFriendlyError(error: unknown, defaultMessage?: string): string {
+  // Handle different error types
+  let errorMessage = '';
+  
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (typeof error === 'string') {
+    errorMessage = error;
+  } else if (error && typeof error === 'object' && 'message' in error) {
+    errorMessage = String((error as { message: unknown }).message);
+  } else {
+    errorMessage = String(error || '');
+  }
+
+  // Default user-friendly message if needed
+  const defaultMsg = defaultMessage || 'Something went wrong. Please try again.';
+
+  // If error is empty or just whitespace, return default
+  if (!errorMessage || !errorMessage.trim()) {
+    return defaultMsg;
+  }
+
+  // Remove HTTP status codes and technical prefixes
+  errorMessage = errorMessage
+    .replace(/^(Failed to (fetch|load|save|delete|update|activate|deactivate|approve|reject|send)):\s*\d+\s*/i, '$1')
+    .replace(/\s*\d{3}\s*(error|status)?/i, '')
+    .replace(/HTTP\s*\d+/gi, '')
+    .replace(/status\s*:\s*\d+/gi, '')
+    .replace(/error\s*code\s*:\s*\d+/gi, '');
+
+  // Remove technical prefixes
+  errorMessage = errorMessage
+    .replace(/^(API\s*)?error\s*:?\s*/i, '')
+    .replace(/^(Network|Connection|Fetch|Request)\s*error\s*:?\s*/i, '')
+    .replace(/^Error\s*:?\s*/i, '');
+
+  // Remove stack traces and technical details (anything after newlines or special characters)
+  errorMessage = errorMessage.split('\n')[0].split('\r')[0].trim();
+
+  // Remove JSON/object representations
+  if (errorMessage.includes('{') || errorMessage.includes('[')) {
+    return defaultMsg;
+  }
+
+  // Check for common technical error patterns and replace with user-friendly messages
+  const technicalPatterns: Array<[RegExp, string]> = [
+    [/session\s*not\s*found/i, 'Please refresh the page and try again.'],
+    [/unauthorized|401/i, 'Your session has expired. Please refresh the page.'],
+    [/forbidden|403/i, 'You don\'t have permission to perform this action.'],
+    [/not\s*found|404/i, 'The requested item could not be found.'],
+    [/conflict|409/i, 'This action conflicts with the current state. Please refresh and try again.'],
+    [/validation|422/i, 'Please check your input and try again.'],
+    [/too\s*many\s*requests|429/i, 'Too many requests. Please wait a moment and try again.'],
+    [/server\s*error|500|502|503|504/i, 'Our servers are experiencing issues. Please try again in a moment.'],
+    [/network|connection|failed\s*to\s*fetch/i, 'Network connection issue. Please check your internet and try again.'],
+    [/timeout/i, 'The request took too long. Please try again.'],
+    [/no\s*context\s*available/i, 'Please refresh the page to continue.'],
+    [/json\s*parse/i, 'Invalid data format. Please try again.'],
+    [/unknown\s*error/i, defaultMsg],
+  ];
+
+  for (const [pattern, friendlyMsg] of technicalPatterns) {
+    if (pattern.test(errorMessage)) {
+      return friendlyMsg;
+    }
+  }
+
+  // If message is too technical (contains technical keywords), return default
+  const technicalKeywords = [
+    'status', 'code', 'stack', 'trace', 'exception', 'throw', 'catch',
+    'promise', 'rejected', 'undefined', 'null', 'object', 'typeerror',
+    'referenceerror', 'syntaxerror', 'networkerror'
+  ];
+  
+  const lowerMessage = errorMessage.toLowerCase();
+  if (technicalKeywords.some(keyword => lowerMessage.includes(keyword) && errorMessage.length < 100)) {
+    return defaultMsg;
+  }
+
+  // If message looks like it might be a raw API response or JSON, return default
+  if (errorMessage.startsWith('{') || errorMessage.startsWith('[') || errorMessage.includes('"error"')) {
+    return defaultMsg;
+  }
+
+  // Clean up the message: remove extra whitespace, capitalize first letter
+  errorMessage = errorMessage.trim().replace(/\s+/g, ' ');
+  if (errorMessage.length > 0) {
+    errorMessage = errorMessage.charAt(0).toUpperCase() + errorMessage.slice(1);
+  }
+
+  // If cleaned message is empty or too short/suspicious, return default
+  if (!errorMessage || errorMessage.length < 3) {
+    return defaultMsg;
+  }
+
+  return errorMessage;
+}
+
