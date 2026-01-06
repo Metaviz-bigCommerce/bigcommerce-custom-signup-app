@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 		const validation = emailTemplatesSchema.safeParse(templates);
 		if (!validation.success) {
 			return errorResponse(
-				`Validation error: ${validation.error.errors.map(e => e.message).join(', ')}`,
+				`Validation error: ${validation.error.issues.map(e => e.message).join(', ')}`,
 				400,
 				'VALIDATION_ERROR' as any,
 				requestId
