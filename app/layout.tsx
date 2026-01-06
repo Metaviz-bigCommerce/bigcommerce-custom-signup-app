@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/context/session";
 import { ToastProvider } from "@/components/common/Toast";
+import { Suspense } from "react";
 
 // Inter - The gold standard for SaaS applications
 // Used by Linear, Vercel, Stripe, and many top-tier apps
@@ -40,11 +41,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans antialiased">
-        <SessionProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </SessionProvider>
+        <Suspense fallback={<div>Loading...</div>}>
+          <SessionProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </SessionProvider>
+        </Suspense>
       </body>
     </html>
   );

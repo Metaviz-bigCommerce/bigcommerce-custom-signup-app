@@ -107,7 +107,7 @@ export function useBcScriptsActions() {
     }
     
     // If there's a response body, try to parse it
-    let jsonResult = { success: true };
+    let jsonResult: { success: boolean; deleted?: boolean; [key: string]: any } = { success: true };
     try {
       jsonResult = { ...JSON.parse(responseText), success: true };
     } catch (parseError) {
