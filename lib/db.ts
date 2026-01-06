@@ -7,10 +7,10 @@ let db: Db;
 
 switch (DB_TYPE) {
     case 'firebase':
-        db = firebaseDB;
+        db = firebaseDB as unknown as Db;
         break;
     default:
-        db = firebaseDB;
+        db = firebaseDB as unknown as Db;
         break;
 }
 
