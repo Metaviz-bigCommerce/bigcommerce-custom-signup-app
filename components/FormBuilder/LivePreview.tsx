@@ -28,7 +28,7 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
     // We need to get additional state from the parent component
     try {
       // Get additional state from sessionStorage if it was stored by FormBuilder
-      let additionalState = {};
+      let additionalState: any = {};
       try {
         const builderState = sessionStorage.getItem('formBuilderState');
         if (builderState) {
