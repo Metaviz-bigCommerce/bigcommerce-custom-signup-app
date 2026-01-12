@@ -131,9 +131,20 @@ export async function POST(req: NextRequest) {
           idempotencyKey,
         });
       } catch (createError: unknown) {
-        if ((createError as { code?: string })?.code === 'DUPLICATE') {
+        const error = createError as { code?: string; remainingDays?: number; message?: string };
+        if (error.code === 'DUPLICATE') {
           const res = apiErrors.duplicate(
             'You have already submitted a request. Please wait for approval or contact the store admin.',
+            requestId
+          );
+          return applyCorsHeaders(req, res);
+        }
+        if (error.code === 'COOLDOWN_ACTIVE') {
+          const remainingDays = error.remainingDays ?? 7;
+          const res = errorResponse(
+            `You've recently submitted a request. Please wait ${remainingDays} ${remainingDays === 1 ? 'day' : 'days'} before trying again.`,
+            429,
+            ErrorCode.RATE_LIMIT_EXCEEDED,
             requestId
           );
           return applyCorsHeaders(req, res);
@@ -263,9 +274,20 @@ export async function POST(req: NextRequest) {
           idempotencyKey: idempotency_key || idempotencyKey,
         });
       } catch (createError: unknown) {
-        if ((createError as { code?: string })?.code === 'DUPLICATE') {
+        const error = createError as { code?: string; remainingDays?: number; message?: string };
+        if (error.code === 'DUPLICATE') {
           const res = apiErrors.duplicate(
             'You have already submitted a request. Please wait for approval or contact the store admin.',
+            requestId
+          );
+          return applyCorsHeaders(req, res);
+        }
+        if (error.code === 'COOLDOWN_ACTIVE') {
+          const remainingDays = error.remainingDays ?? 7;
+          const res = errorResponse(
+            `You've recently submitted a request. Please wait ${remainingDays} ${remainingDays === 1 ? 'day' : 'days'} before trying again.`,
+            429,
+            ErrorCode.RATE_LIMIT_EXCEEDED,
             requestId
           );
           return applyCorsHeaders(req, res);

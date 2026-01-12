@@ -212,6 +212,19 @@ export const infoRequestSchema = z.object({
   required_information: z.string().min(1).max(2000),
 });
 
+// Cooldown period schema
+export const cooldownPeriodSchema = z.number().int().min(1).max(365);
+
+// Cooldown config schema
+export const cooldownConfigSchema = z.object({
+  days: cooldownPeriodSchema,
+});
+
+// Reset cooldown schema
+export const resetCooldownSchema = z.object({
+  email: emailSchema,
+});
+
 // Validation helper functions
 export function validateFile(file: File): { valid: boolean; error?: string } {
   if (file.size > MAX_FILE_SIZE) {

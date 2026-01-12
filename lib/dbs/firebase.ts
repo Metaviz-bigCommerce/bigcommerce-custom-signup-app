@@ -157,6 +157,7 @@ export async function getStoreSettings(storeHash: string) {
     signupScriptUuid: data?.signupScriptUuid || '',
     emailTemplates: data?.emailTemplates || null,
     emailConfig: data?.emailConfig || null,
+    cooldownPeriodDays: data?.cooldownPeriodDays ?? 7, // Default 7 days
   };
 }
 
@@ -201,12 +202,26 @@ export async function createSignupRequest(storeHash: string, payload: Record<str
   // Duplicate check by canonical email if provided
   const email = (payload as any)?.email ? String((payload as any).email).toLowerCase() : '';
   if (email) {
+    // Check for cooldown period first
+    const cooldownStatus = await checkCooldownStatus(storeHash, email);
+    if (cooldownStatus.inCooldown) {
+      const err: any = new Error(`cooldown_active:${cooldownStatus.remainingDays}`);
+      err.code = 'COOLDOWN_ACTIVE';
+      err.remainingDays = cooldownStatus.remainingDays;
+      throw err;
+    }
+    
+    // Check for existing pending/approved requests (duplicate check)
     const dupQ = query(colRef, where('email', '==', email), fsLimit(1));
     const dupSnap = await getDocs(dupQ);
     if (!dupSnap.empty) {
-      const err: any = new Error('duplicate_signup');
-      err.code = 'DUPLICATE';
-      throw err;
+      const existing = dupSnap.docs[0].data();
+      // Only block if it's pending or approved, not rejected (rejected is handled by cooldown)
+      if (existing.status === 'pending' || existing.status === 'approved') {
+        const err: any = new Error('duplicate_signup');
+        err.code = 'DUPLICATE';
+        throw err;
+      }
     }
   }
   
@@ -276,7 +291,14 @@ export async function listSignupRequests(storeHash: string, options?: { pageSize
 export async function updateSignupRequestStatus(storeHash: string, id: string, status: SignupRequestStatus) {
   if (!storeHash || !id) throw new Error('Missing storeHash or id');
   const ref = doc(db, 'stores', storeHash, 'signupRequests', id);
-  await updateDoc(ref, { status });
+  const updateData: any = { status };
+  
+  // Store rejectedAt timestamp when status changes to 'rejected'
+  if (status === 'rejected') {
+    updateData.rejectedAt = serverTimestamp();
+  }
+  
+  await updateDoc(ref, updateData);
   return { ok: true };
 }
 
@@ -466,4 +488,119 @@ export async function deactivateAllVersions(storeHash: string) {
   
   await Promise.all(updatePromises);
   return { ok: true };
+}
+
+// Cooldown period configuration
+export async function getCooldownPeriod(storeHash: string): Promise<number> {
+  if (!storeHash) throw new Error('Missing storeHash');
+  const settings = await getStoreSettings(storeHash);
+  return settings?.cooldownPeriodDays ?? 7; // Default 7 days
+}
+
+export async function setCooldownPeriod(storeHash: string, days: number): Promise<void> {
+  if (!storeHash) throw new Error('Missing storeHash');
+  if (days < 1 || days > 365) throw new Error('Cooldown period must be between 1 and 365 days');
+  const ref = doc(db, 'stores', storeHash);
+  await setDoc(ref, { cooldownPeriodDays: days }, { merge: true } as any);
+}
+
+// Check cooldown status for an email
+export async function checkCooldownStatus(storeHash: string, email: string): Promise<{ inCooldown: boolean; remainingDays?: number }> {
+  if (!storeHash || !email) {
+    return { inCooldown: false };
+  }
+  
+  const colRef = collection(db, 'stores', storeHash, 'signupRequests');
+  const emailLower = email.toLowerCase();
+  
+  // Query for rejected requests by this email (we'll filter and sort in memory if needed)
+  // First, get all rejected requests for this email
+  const rejectedQ = query(
+    colRef,
+    where('email', '==', emailLower),
+    where('status', '==', 'rejected'),
+    orderBy('submittedAt', 'desc'),
+    fsLimit(10) // Get recent rejections to find one with rejectedAt
+  );
+  
+  const rejectedSnap = await getDocs(rejectedQ);
+  
+  if (rejectedSnap.empty) {
+    return { inCooldown: false };
+  }
+  
+  // Find the most recent rejection with a rejectedAt timestamp
+  let mostRecentRejection: { rejectedAt: any } | null = null;
+  for (const doc of rejectedSnap.docs) {
+    const data = doc.data();
+    if (data.rejectedAt) {
+      mostRecentRejection = { rejectedAt: data.rejectedAt };
+      break; // Since we ordered by submittedAt desc, first one with rejectedAt is most recent
+    }
+  }
+  
+  if (!mostRecentRejection || !mostRecentRejection.rejectedAt) {
+    // No rejection with timestamp found, allow resubmission
+    return { inCooldown: false };
+  }
+  
+  const rejectedAt = mostRecentRejection.rejectedAt;
+  
+  // Get cooldown period
+  const cooldownDays = await getCooldownPeriod(storeHash);
+  
+  // Convert Firestore timestamp to Date
+  let rejectedDate: Date;
+  if (rejectedAt && typeof rejectedAt === 'object' && 'toDate' in rejectedAt) {
+    rejectedDate = rejectedAt.toDate();
+  } else if (rejectedAt && typeof rejectedAt === 'object' && 'seconds' in rejectedAt) {
+    rejectedDate = new Date((rejectedAt.seconds as number) * 1000);
+  } else if (rejectedAt instanceof Date) {
+    rejectedDate = rejectedAt;
+  } else {
+    return { inCooldown: false };
+  }
+  
+  // Calculate time difference
+  const now = new Date();
+  const diffMs = now.getTime() - rejectedDate.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  
+  if (diffDays >= cooldownDays) {
+    return { inCooldown: false };
+  }
+  
+  // Calculate remaining days (round up)
+  const remainingDays = Math.ceil(cooldownDays - diffDays);
+  return { inCooldown: true, remainingDays };
+}
+
+// Reset cooldown for a specific email (remove rejectedAt from most recent rejection)
+export async function resetCooldownForEmail(storeHash: string, email: string): Promise<void> {
+  if (!storeHash || !email) throw new Error('Missing storeHash or email');
+  
+  const colRef = collection(db, 'stores', storeHash, 'signupRequests');
+  const emailLower = email.toLowerCase();
+  
+  // Find most recent rejected request with rejectedAt
+  const rejectedQ = query(
+    colRef,
+    where('email', '==', emailLower),
+    where('status', '==', 'rejected'),
+    orderBy('submittedAt', 'desc'),
+    fsLimit(10)
+  );
+  
+  const rejectedSnap = await getDocs(rejectedQ);
+  
+  // Find the most recent rejection with rejectedAt
+  for (const rejectedDoc of rejectedSnap.docs) {
+    const data = rejectedDoc.data();
+    if (data.rejectedAt) {
+      const ref = doc(db, 'stores', storeHash, 'signupRequests', rejectedDoc.id);
+      // Remove rejectedAt to effectively reset the cooldown
+      await updateDoc(ref, { rejectedAt: deleteField() as any });
+      return;
+    }
+  }
 }

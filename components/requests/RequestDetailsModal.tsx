@@ -18,6 +18,7 @@ import {
   Trash2,
   MessageSquare,
   Check,
+  RotateCcw,
 } from 'lucide-react';
 import { useStoreForm } from '@/lib/hooks';
 import { FormField } from '@/components/FormBuilder/types';
@@ -31,7 +32,7 @@ export type RequestItem = {
   files?: Array<{ name: string; url: string; contentType?: string; size?: number }>;
 };
 
-export type ActionLoadingType = 'approve' | 'reject' | 'info' | 'delete' | null;
+export type ActionLoadingType = 'approve' | 'reject' | 'info' | 'delete' | 'resetCooldown' | null;
 
 export interface RequestDetailsModalProps {
   request: RequestItem;
@@ -40,6 +41,7 @@ export interface RequestDetailsModalProps {
   onReject: (id: string) => void;
   onRequestInfo: (id: string) => void;
   onDelete: (id: string) => void;
+  onResetCooldown?: (email: string) => void;
   actionLoading: ActionLoadingType;
   showToast?: (message: string) => void;
 }
@@ -344,6 +346,7 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
   onReject,
   onRequestInfo,
   onDelete,
+  onResetCooldown,
   actionLoading,
   showToast,
 }) => {
@@ -917,6 +920,28 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                   <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-rose-600 shrink-0" />
                   <span className="text-rose-700 font-semibold text-xs sm:text-sm md:text-[15px] truncate">Request Rejected</span>
                 </div>
+                {onResetCooldown && request.email && (
+                  <button
+                    onClick={() => onResetCooldown(request.email!)}
+                    disabled={actionLoading !== null}
+                    className="px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm md:text-[15px] transition-colors duration-200 flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shrink-0"
+                    title="Reset cooldown period for this user"
+                  >
+                    {actionLoading === 'resetCooldown' ? (
+                      <>
+                        <LoadingSpinner />
+                        <span className="hidden sm:inline">Resetting...</span>
+                        <span className="sm:hidden">...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="hidden sm:inline">Reset Cooldown</span>
+                        <span className="sm:hidden">Reset</span>
+                      </>
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={() => onApprove(request.id)}
                   disabled={actionLoading !== null}
