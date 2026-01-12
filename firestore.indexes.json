@@ -29,6 +29,24 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "email",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "submittedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "signupRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "meta.idempotencyKey",
           "order": "ASCENDING"
         }

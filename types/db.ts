@@ -22,7 +22,7 @@ export interface Db {
     getStoreForm(storeHash: string): Promise<any>;
     setStoreForm(storeHash: string, form: any): Promise<void>;
     setStoreFormActive(storeHash: string, active: boolean): Promise<void>;
-    getStoreSettings(storeHash: string): Promise<{ signupForm?: any; signupFormActive?: boolean; signupScriptUuid?: string; emailTemplates?: any } | null>;
+    getStoreSettings(storeHash: string): Promise<{ signupForm?: any; signupFormActive?: boolean; signupScriptUuid?: string; emailTemplates?: any; cooldownPeriodDays?: number } | null>;
     getPublicStoreId(storeHash: string): Promise<string>;
     resolveStoreHashByPublicId(publicId: string): Promise<string | null>;
     createSignupRequest(storeHash: string, payload: Record<string, any>): Promise<{ id: string }>;
@@ -42,4 +42,8 @@ export interface Db {
     setActiveFormVersion(storeHash: string, versionId: string): Promise<{ ok: boolean }>;
     updateFormVersion(storeHash: string, versionId: string, updates: { name?: string; form?: any }): Promise<{ ok: boolean }>;
     deactivateAllVersions(storeHash: string): Promise<{ ok: boolean }>;
+    getCooldownPeriod(storeHash: string): Promise<number>;
+    setCooldownPeriod(storeHash: string, days: number): Promise<void>;
+    checkCooldownStatus(storeHash: string, email: string): Promise<{ inCooldown: boolean; remainingDays?: number }>;
+    resetCooldownForEmail(storeHash: string, email: string): Promise<void>;
 }

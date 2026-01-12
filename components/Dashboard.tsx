@@ -49,7 +49,7 @@ const Dashboard: React.FC = () => {
   const [selectedRequest, setSelectedRequest] = useState<SignupRequestItem | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<'approve' | 'reject' | 'info' | 'delete' | null>(null);
+  const [actionLoading, setActionLoading] = useState<'approve' | 'reject' | 'info' | 'delete' | 'resetCooldown' | null>(null);
   const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [requestInfoTargetId, setRequestInfoTargetId] = useState<string | null>(null);
@@ -166,6 +166,35 @@ const Dashboard: React.FC = () => {
     setApproveTargetId(null);
     await loadSignupRequests();
     await loadStats();
+  };
+
+  const resetCooldown = async (email: string) => {
+    if (!context || actionLoading) return;
+    setActionLoading('resetCooldown');
+    try {
+      const res = await fetch(`/api/signup-requests/reset-cooldown?context=${encodeURIComponent(context)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.error === false) {
+          toast.showSuccess('Cooldown period reset successfully. User can now resubmit.');
+          setSelectedRequest(null);
+          await loadSignupRequests();
+        } else {
+          toast.showError(data.message || 'Failed to reset cooldown');
+        }
+      } else {
+        const errorText = await res.text();
+        toast.showError(errorText || 'Failed to reset cooldown');
+      }
+    } catch (error: unknown) {
+      toast.showError(error instanceof Error ? error.message : 'Failed to reset cooldown');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const reject = async (id: string) => {
@@ -519,6 +548,7 @@ const Dashboard: React.FC = () => {
           onReject={(id) => reject(id)}
           onRequestInfo={(id) => openRequestInfoModal(id)}
           onDelete={(id) => remove(id)}
+          onResetCooldown={(email) => resetCooldown(email)}
           actionLoading={actionLoading}
           showToast={(msg) => toast.showSuccess(msg)}
         />
