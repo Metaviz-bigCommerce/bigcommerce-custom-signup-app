@@ -51,14 +51,11 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
             { label: 'Option 1', value: 'option1' },
             { label: 'Option 2', value: 'option2' }
           ];
-        } else if (type === 'checkbox') {
-          // Checkbox with no label should have at least one default option for preview
+        } else if (type === 'checkbox' || type === 'select') {
+          // Checkbox and Select start with one default option
           initialOptions = [
             { label: 'Option 1', value: 'option1' }
           ];
-        } else {
-          // Select starts with empty options (user adds them)
-          initialOptions = [];
         }
       }
 
@@ -132,6 +129,11 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
     // For radio, ensure at least 2 options remain
     if (localField.type === 'radio' && localField.options.length <= 2) {
       alert('Radio fields must have at least 2 options');
+      return;
+    }
+    // For select, ensure at least 1 option remains
+    if (localField.type === 'select' && localField.options.length <= 1) {
+      alert('Select fields must have at least 1 option');
       return;
     }
     const newOptions = localField.options.filter((_, i) => i !== index);
@@ -315,6 +317,9 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
                         {localField.type === 'radio' && (
                           <p className="text-xs text-gray-500">Radio fields require at least 2 options</p>
                         )}
+                        {localField.type === 'select' && (
+                          <p className="text-xs text-gray-500">Select fields require at least 1 option</p>
+                        )}
                         {localField.type === 'checkbox' && (
                           <p className="text-xs text-gray-500">
                             {localField.label ? (
@@ -355,6 +360,7 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
                                 className="cursor-pointer p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={
                                   (localField.type === 'radio' && (localField.options?.length || 0) <= 2) ||
+                                  (localField.type === 'select' && (localField.options?.length || 0) <= 1) ||
                                   (localField.type === 'checkbox' && !localField.label?.trim() && (localField.options?.length || 0) <= 1)
                                 }
                                 title="Remove option"
