@@ -213,7 +213,7 @@ const EmailConfigForm: React.FC = () => {
 							<Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white" />
 						</div>
 						<div className="min-w-0 flex-1 overflow-hidden">
-							<h1 className="text-xl sm:text-[22px] md:text-2xl font-bold !text-white break-words">Email Settings</h1>
+							<h1 className="sm:text-2xl md:text-3xl lg:text-4xl font-bold !text-white break-words">Email Settings</h1>
 							<p className="text-slate-400 text-[11px] sm:text-xs md:text-sm mt-0.5 break-words">Configure your email sending preferences and SMTP credentials</p>
 						</div>
 					</div>

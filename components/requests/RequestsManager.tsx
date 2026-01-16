@@ -295,7 +295,7 @@ const RequestsManager: React.FC = () => {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <div>
-                  <h1 className="text-lg min-[361px]:text-xl sm:text-2xl font-bold !text-white whitespace-nowrap min-[361px]:whitespace-normal">Signup Requests</h1>
+                  <h1 className="sm:text-2xl md:text-3xl lg:text-4xl font-bold !text-white">Signup Requests</h1>
                   <p className="text-slate-400 text-xs sm:text-sm">Manage and review all signup submissions</p>
                 </div>
               </div>

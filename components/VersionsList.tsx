@@ -1598,7 +1598,7 @@ export default function VersionsList({ onLoadVersion, onVersionLoaded, onNavigat
           {/* Title Row - Enhanced responsive typography */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 lg:gap-6 mb-3 sm:mb-4 lg:mb-6">
             <div>
-              <h1 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-bold !text-white mb-1 sm:mb-2 tracking-tight leading-tight">Saved Forms</h1>
+              <h1 className="sm:text-2xl md:text-3xl lg:text-4xl font-bold !text-white mb-1 sm:mb-2 tracking-tight leading-tight">Saved Forms</h1>
               <p className="text-slate-300 sm:text-slate-400 text-[11px] sm:text-xs md:text-sm leading-relaxed">Manage and activate your signup forms</p>
             </div>
           </div>
