@@ -387,7 +387,7 @@ const Dashboard: React.FC = () => {
                   <span className="text-xs sm:text-sm text-white/90 font-medium whitespace-nowrap">Custom Signup Forms Dashboard</span>
                 </div>
               </div>
-              <h1 className="text-[12px] min-[360px]:text-[17px] min-[390px]:text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold !text-white mb-2 sm:mb-3 leading-tight overflow-visible">
+              <h1 className="sm:text-2xl md:text-3xl lg:text-4xl font-bold !text-white mb-2 sm:mb-3 leading-tight overflow-visible">
                 <span className="whitespace-nowrap inline-flex items-center overflow-visible">Welcome back!<span className="inline-block ml-1 overflow-visible">👋</span></span>
               </h1>
               <p className="text-blue-200 text-xs sm:text-sm md:text-base lg:text-lg max-w-xl leading-relaxed">
