@@ -483,7 +483,7 @@ export async function POST(req: NextRequest) {
         isCustomerEmail: true, // Customer emails require store owner SMTP
       });
       if (!emailResult.ok && emailResult.skipped) {
-        console.warn('Approval email skipped:', emailResult.reason);
+        console.warn('Approval email skipped:', emailResult.reason || 'Unknown reason');
       }
     } catch {}
 

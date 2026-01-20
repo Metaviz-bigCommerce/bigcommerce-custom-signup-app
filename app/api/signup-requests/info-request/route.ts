@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 				if (emailResult.ok) {
 					logger.info('Info request email sent', { ...logContext, storeHash, requestId: id, email });
 				} else if (emailResult.skipped) {
-					logger.warn('Info request email skipped', { ...logContext, storeHash, requestId: id, email, reason: emailResult.reason });
+					logger.warn('Info request email skipped', { ...logContext, storeHash, requestId: id, email, reason: emailResult.reason || 'Unknown reason' });
 				}
 			} catch (emailError) {
 				logger.error('Failed to send info request email', emailError, { ...logContext, storeHash, requestId: id, email });

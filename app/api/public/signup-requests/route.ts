@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
               isCustomerEmail: true, // Customer emails require store owner SMTP
             });
             if (!emailResult.ok && emailResult.skipped) {
-              logger.warn('Signup confirmation email skipped', { ...logContext, email, reason: emailResult.reason });
+              logger.warn('Signup confirmation email skipped', { ...logContext, email, reason: emailResult.reason || 'Unknown reason' });
             }
           } catch (emailError) {
             logger.error('Failed to send signup confirmation email', emailError, { ...logContext, email });
@@ -433,7 +433,7 @@ export async function POST(req: NextRequest) {
               isCustomerEmail: true, // Customer emails require store owner SMTP
             });
             if (!emailResult.ok && emailResult.skipped) {
-              logger.warn('Signup confirmation email skipped', { ...logContext, email, reason: emailResult.reason });
+              logger.warn('Signup confirmation email skipped', { ...logContext, email, reason: emailResult.reason || 'Unknown reason' });
             }
           } catch (emailError) {
             logger.error('Failed to send signup confirmation email', emailError, { ...logContext, email });

@@ -83,19 +83,19 @@ const EmailConfigForm: React.FC = () => {
 		
 		return {
 			useShared: false, // Always false now (deprecated)
-			fromEmail: cfg?.fromEmail || null,
-			fromName: cfg?.fromName || null,
-			replyTo: cfg?.replyTo || null,
+		fromEmail: cfg?.fromEmail || null,
+		fromName: cfg?.fromName || null,
+		replyTo: cfg?.replyTo || null,
 			customerEmailsEnabled,
-			smtp: cfg?.smtp
-				? {
-						host: String(cfg.smtp.host || ''),
-						port: Number(cfg.smtp.port || 0),
-						user: String(cfg.smtp.user || ''),
-						pass: String(cfg.smtp.pass || ''),
-						secure: Boolean(cfg.smtp.secure),
-				  }
-				: { host: '', port: 0, user: '', pass: '', secure: false },
+		smtp: cfg?.smtp
+			? {
+					host: String(cfg.smtp.host || ''),
+					port: Number(cfg.smtp.port || 0),
+					user: String(cfg.smtp.user || ''),
+					pass: String(cfg.smtp.pass || ''),
+					secure: Boolean(cfg.smtp.secure),
+			  }
+			: { host: '', port: 0, user: '', pass: '', secure: false },
 		};
 	};
 
@@ -253,12 +253,12 @@ const EmailConfigForm: React.FC = () => {
 				useShared: false, // Always false (deprecated)
 				customerEmailsEnabled: customerEmailsEnabled && isSmtpConfigured(),
 				smtp: {
-					host: String(smtp.host || 'smtp-relay.brevo.com'),
-					port: Number(smtp.port || 587),
-					user: String(smtp.user || ''),
-					pass: String(smtp.pass || ''),
-					secure: !!smtp.secure,
-				},
+							host: String(smtp.host || 'smtp-relay.brevo.com'),
+							port: Number(smtp.port || 587),
+							user: String(smtp.user || ''),
+							pass: String(smtp.pass || ''),
+							secure: !!smtp.secure,
+					  },
 			};
 			const res = await fetch(`/api/email-config?context=${encodeURIComponent(context)}`, {
 				method: 'POST',
@@ -353,7 +353,7 @@ const EmailConfigForm: React.FC = () => {
 							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-slate-200">
 								<div className="flex-1">
 									<h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">Email Configuration</h2>
-									<p className="text-xs sm:text-sm text-slate-600">Review your current SMTP settings. Click "Edit Settings" to make changes.</p>
+									<p className="text-xs sm:text-sm text-slate-600">Review your current SMTP settings. Click &quot;Edit Settings&quot; to make changes.</p>
 								</div>
 								<button
 									onClick={handleEdit}
@@ -395,7 +395,7 @@ const EmailConfigForm: React.FC = () => {
 											<strong className="text-slate-700">Customer emails</strong> require your own SMTP configuration below.
 										</p>
 										<p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 mt-2">
-											<strong>⚠️ Important:</strong> All fields marked with <span className="text-red-600 font-bold">*</span> are required. You must click "Save Settings" to apply changes.
+											<strong>⚠️ Important:</strong> All fields marked with <span className="text-red-600 font-bold">*</span> are required. You must click &quot;Save Settings&quot; to apply changes.
 										</p>
 									</div>
 								</div>
@@ -455,9 +455,9 @@ const EmailConfigForm: React.FC = () => {
 											<p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 break-words">
 												{isSmtpConfigured()
 													? customerEmailsEnabled
-														? "Customer emails will be sent using your SMTP configuration"
-														: "Enable to send emails to customers using your SMTP"
-													: "Configure SMTP settings below to enable customer emails"}
+														? 'Customer emails will be sent using your SMTP configuration'
+														: 'Enable to send emails to customers using your SMTP'
+													: 'Configure SMTP settings below to enable customer emails'}
 											</p>
 										</div>
 									</label>
@@ -768,28 +768,28 @@ const EmailConfigForm: React.FC = () => {
 
 						{/* Action Buttons */}
 						{isEditing && (
-							<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 md:gap-4 pt-3 sm:pt-4 border-t border-slate-200">
-								<button
-									onClick={save}
-									disabled={saving || loading || !isDirty}
-									className={`flex items-center justify-center gap-2 px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 touch-manipulation min-h-[44px] ${
-										saving || loading || !isDirty
-											? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-											: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98]'
-									}`}
-								>
-									{saving ? (
-										<>
-											<RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin flex-shrink-0" />
-											<span className="whitespace-nowrap">Saving...</span>
-										</>
-									) : (
-										<>
-											<Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-											<span className="whitespace-nowrap">Save Settings</span>
-										</>
-									)}
-								</button>
+						<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 md:gap-4 pt-3 sm:pt-4 border-t border-slate-200">
+							<button
+								onClick={save}
+								disabled={saving || loading || !isDirty}
+								className={`flex items-center justify-center gap-2 px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 touch-manipulation min-h-[44px] ${
+									saving || loading || !isDirty
+										? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+										: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98]'
+								}`}
+							>
+								{saving ? (
+									<>
+										<RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin flex-shrink-0" />
+										<span className="whitespace-nowrap">Saving...</span>
+									</>
+								) : (
+									<>
+										<Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+										<span className="whitespace-nowrap">Save Settings</span>
+									</>
+								)}
+							</button>
 								
 								<button
 									onClick={handleCancel}
@@ -827,7 +827,7 @@ const EmailConfigForm: React.FC = () => {
 									<span className="whitespace-nowrap">All changes saved</span>
 								</div>
 							)}
-							</div>
+						</div>
 						)}
 						
 						{/* Read-only mode status */}

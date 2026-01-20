@@ -387,7 +387,7 @@ export async function sendEmail(params: {
 	config?: EmailConfig | null;
 	html?: string | null;
 	forceCompanySmtp?: boolean; // When true, always use company SMTP (for store owner emails)
-}) {
+}): Promise<{ ok: boolean; skipped?: boolean; reason?: string; error?: string }> {
 	const { to, subject, body, from, replyTo, config, html, forceCompanySmtp } = params;
 	
 	// If forceCompanySmtp is true, always use company SMTP (for store owner emails)
@@ -462,9 +462,9 @@ export async function trySendTemplatedEmail(args: {
 	config?: EmailConfig | null;
 	templateKey?: TemplateKey;
 	isCustomerEmail?: boolean; // When true, validates SMTP before sending
-}) {
+}): Promise<{ ok: boolean; skipped?: boolean; reason?: string; error?: string }> {
 	const { to, template, vars, from, replyTo, config, templateKey, isCustomerEmail } = args;
-	if (!to) return { ok: false, skipped: true };
+	if (!to) return { ok: false, skipped: true, reason: 'No recipient email address provided' };
 	
 	// For customer emails, validate SMTP is configured and customer emails are enabled
 	if (isCustomerEmail) {
@@ -494,7 +494,15 @@ export async function trySendTemplatedEmail(args: {
 		}
 	}
 	
-	return await sendEmail({ to, subject, body, html, from, replyTo, config, forceCompanySmtp: false });
+	const result = await sendEmail({ to, subject, body, html, from, replyTo, config, forceCompanySmtp: false });
+	// Ensure consistent return type - always include reason when skipped
+	if (result.ok) {
+		return { ok: true };
+	} else if (result.skipped) {
+		return { ok: false, skipped: true, reason: result.reason || 'Email sending was skipped' };
+	} else {
+		return { ok: false, error: result.error || 'Unknown error occurred' };
+	}
 }
 
 // Helper function to send owner notification emails

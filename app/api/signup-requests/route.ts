@@ -153,7 +153,7 @@ export async function PATCH(req: NextRequest) {
           if (emailResult.ok) {
             logger.info('Status update email sent', { ...logContext, email, status });
           } else if (emailResult.skipped) {
-            logger.warn('Status update email skipped', { ...logContext, email, status, reason: emailResult.reason });
+            logger.warn('Status update email skipped', { ...logContext, email, status, reason: emailResult.reason || 'Unknown reason' });
           }
         }
       }
