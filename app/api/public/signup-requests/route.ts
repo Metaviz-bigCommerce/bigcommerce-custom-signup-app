@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
           const res = errorResponse(
             'An account with this email already exists. Please login instead.',
             409,
-            ErrorCode.DUPLICATE_RESOURCE,
+            ErrorCode.CONFLICT,
             requestId
           );
           return applyCorsHeaders(req, res);
@@ -396,7 +396,7 @@ export async function POST(req: NextRequest) {
           const res = errorResponse(
             'An account with this email already exists. Please login instead.',
             409,
-            ErrorCode.DUPLICATE_RESOURCE,
+            ErrorCode.CONFLICT,
             requestId
           );
           return applyCorsHeaders(req, res);
