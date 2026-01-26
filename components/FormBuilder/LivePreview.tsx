@@ -592,6 +592,38 @@ const LivePreview: React.FC<LivePreviewProps> = ({ formFields, theme, viewMode, 
             {btnt}
           </button>
         )}
+        
+        {/* Login Prompt - Always visible for Create Account forms */}
+        {formFields.length > 0 && (
+          <div
+            style={{
+              textAlign: 'center',
+              marginTop: '16px',
+              fontSize: isMobile ? '13px' : '14px',
+              color: '#6b7280',
+              lineHeight: '1.5'
+            }}
+          >
+            Already have an account?{' '}
+            <a
+              href="/login.php"
+              style={{
+                color: pr,
+                textDecoration: 'none',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.textDecoration = 'underline';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.textDecoration = 'none';
+              }}
+            >
+              Log in
+            </a>
+          </div>
+        )}
       </form>
     </>
   );
