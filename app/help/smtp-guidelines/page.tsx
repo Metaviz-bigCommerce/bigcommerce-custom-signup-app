@@ -64,7 +64,7 @@ function SmtpGuidelinesContent() {
                     Open the email settings and find the SMTP details (host, port, username, password).
                   </li>
                   <li>
-                    Paste those details into the SMTP fields in this app's <strong>Email Settings</strong> tab.
+                    Paste those details into the SMTP fields in this app&apos;s <strong>Email Settings</strong> tab.
                   </li>
                   <li>
                     Click <strong>Save Settings</strong>. Once saved and valid, your emails will start sending automatically.

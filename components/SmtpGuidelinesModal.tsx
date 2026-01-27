@@ -61,7 +61,7 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
                   <strong>SMTP (Simple Mail Transfer Protocol)</strong> is the standard protocol used for sending emails across the internet. In this application, SMTP is required to send customer emails, including signup confirmations, approval notifications, and information requests.
                 </p>
                 <p>
-                  Without proper SMTP configuration, your application will not be able to send any customer emails. This means customers won't receive important notifications about their signup requests, which can lead to a poor user experience and potential loss of business.
+                  Without proper SMTP configuration, your application will not be able to send any customer emails. This means customers won&apos;t receive important notifications about their signup requests, which can lead to a poor user experience and potential loss of business.
                 </p>
                 <p>
                   This guide will walk you through everything you need to know to configure SMTP correctly and ensure reliable email delivery for your custom signup forms.
@@ -81,7 +81,7 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
                     <strong>Enter SMTP Credentials:</strong> Navigate to the <strong>Email Settings</strong> tab in your dashboard and fill in all required SMTP fields (host, port, username, password, etc.).
                   </li>
                   <li>
-                    <strong>Save Settings:</strong> Click the <strong>"Save Settings"</strong> button to store your configuration. The system will validate your SMTP credentials at this point.
+                    <strong>Save Settings:</strong> Click the <strong>&quot;Save Settings&quot;</strong> button to store your configuration. The system will validate your SMTP credentials at this point.
                   </li>
                   <li>
                     <strong>Email Delivery:</strong> Once validated and saved, customer emails will automatically be sent using these SMTP settings whenever a signup request is processed.
@@ -115,7 +115,7 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
                     <User className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <h4 className="font-semibold text-gray-900 mb-1">From Name</h4>
-                      <p className="text-sm text-gray-700">The display name that recipients will see in their email client (e.g., "Your Store Name" or "Customer Support").</p>
+                      <p className="text-sm text-gray-700">The display name that recipients will see in their email client (e.g., &quot;Your Store Name&quot; or &quot;Customer Support&quot;).</p>
                     </div>
                   </div>
                 </div>
@@ -209,8 +209,8 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
                   <li>
                     <strong>Find SMTP Settings:</strong>
                     <ul className="list-disc list-inside mt-2 ml-6 space-y-1">
-                      <li>In the email account settings, look for <strong>"Email Client Configuration"</strong> or <strong>"SMTP Settings"</strong></li>
-                      <li>You'll find the SMTP server details listed there</li>
+                      <li>In the email account settings, look for <strong>&quot;Email Client Configuration&quot;</strong> or <strong>&quot;SMTP Settings&quot;</strong></li>
+                      <li>You&apos;ll find the SMTP server details listed there</li>
                     </ul>
                   </li>
                   <li>
@@ -228,8 +228,8 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
                   <li>
                     <strong>Special Notes:</strong>
                     <ul className="list-disc list-inside mt-2 ml-6 space-y-1">
-                      <li>If you're using port 465, enable the SSL/TLS checkbox</li>
-                      <li>If you're using port 587, enable the SSL/TLS checkbox (TLS will be used automatically)</li>
+                      <li>If you&apos;re using port 465, enable the SSL/TLS checkbox</li>
+                      <li>If you&apos;re using port 587, enable the SSL/TLS checkbox (TLS will be used automatically)</li>
                       <li>Some Hostinger plans may require you to use an application-specific password instead of your regular email password</li>
                     </ul>
                   </li>
@@ -265,7 +265,7 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
                 <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
                   <h4 className="font-semibold text-gray-900 mb-2">Emails Blocked by Provider</h4>
                   <p className="text-sm text-gray-700 mb-2"><strong>Problem:</strong> Your email provider is blocking outgoing emails or marking them as spam.</p>
-                  <p className="text-sm text-gray-700"><strong>Solution:</strong> Check your domain's SPF and DKIM records. Ensure your "From Email" address matches your domain. Contact your email provider if issues persist.</p>
+                  <p className="text-sm text-gray-700"><strong>Solution:</strong> Check your domain&apos;s SPF and DKIM records. Ensure your &quot;From Email&quot; address matches your domain. Contact your email provider if issues persist.</p>
                 </div>
 
                 <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
@@ -288,7 +288,7 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
                     <strong>Use Domain-Based Email:</strong> Always use an email address based on your custom domain (e.g., <code className="bg-gray-200 px-1.5 py-0.5 rounded text-xs">noreply@yourdomain.com</code>) rather than free email services like Gmail or Yahoo. This improves deliverability and builds trust with recipients.
                   </li>
                   <li>
-                    <strong>Configure SPF/DKIM Records:</strong> Set up SPF (Sender Policy Framework) and DKIM (DomainKeys Identified Mail) records in your domain's DNS settings. These help prevent your emails from being marked as spam and improve deliverability rates.
+                    <strong>Configure SPF/DKIM Records:</strong> Set up SPF (Sender Policy Framework) and DKIM (DomainKeys Identified Mail) records in your domain&apos;s DNS settings. These help prevent your emails from being marked as spam and improve deliverability rates.
                   </li>
                   <li>
                     <strong>Avoid Free/Public SMTP Servers:</strong> For production use, avoid free SMTP services that may have sending limits or reliability issues. Use a professional email hosting service like Hostinger, Brevo, SendGrid, or similar providers.
@@ -300,7 +300,7 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
                     <strong>Keep Credentials Secure:</strong> Never share your SMTP credentials publicly or commit them to version control. Treat them like passwords.
                   </li>
                   <li>
-                    <strong>Monitor Email Delivery:</strong> Regularly check that customer emails are being sent successfully. Monitor bounce rates and delivery issues through your email provider's dashboard.
+                    <strong>Monitor Email Delivery:</strong> Regularly check that customer emails are being sent successfully. Monitor bounce rates and delivery issues through your email provider&apos;s dashboard.
                   </li>
                 </ul>
               </div>
@@ -314,7 +314,7 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
               </h3>
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 sm:p-6 rounded-lg">
                 <p className="text-sm sm:text-base text-gray-700 mb-4">
-                  If you're still experiencing issues with SMTP configuration after following this guide, we're here to help:
+                  If you&apos;re still experiencing issues with SMTP configuration after following this guide, we&apos;re here to help:
                 </p>
                 <ul className="space-y-2 text-sm sm:text-base text-gray-700">
                   <li className="flex items-start gap-2">
@@ -323,11 +323,11 @@ const SmtpGuidelinesModal: React.FC<SmtpGuidelinesModalProps> = ({
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-blue-600 font-bold">•</span>
-                    <span><strong>Check Provider Documentation:</strong> Refer to your SMTP provider's official documentation for the most up-to-date settings and troubleshooting steps.</span>
+                    <span><strong>Check Provider Documentation:</strong> Refer to your SMTP provider&apos;s official documentation for the most up-to-date settings and troubleshooting steps.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-blue-600 font-bold">•</span>
-                    <span><strong>Verify DNS Settings:</strong> Ensure your domain's DNS records (SPF, DKIM, MX) are correctly configured as per your email provider's requirements.</span>
+                    <span><strong>Verify DNS Settings:</strong> Ensure your domain&apos;s DNS records (SPF, DKIM, MX) are correctly configured as per your email provider&apos;s requirements.</span>
                   </li>
                 </ul>
               </div>
