@@ -38,6 +38,10 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
         if (type === 'checkbox') {
           label = '';
           placeholder = '';
+        } else if (type === 'date') {
+          // Date fields don't use placeholders (date picker shows format instead)
+          label = type === 'text' ? 'New text field' : `New ${type} field`;
+          placeholder = '';
         } else {
           label = type === 'text' ? 'New text field' : `New ${type} field`;
           placeholder = type === 'phone' ? 'Enter phone' : `Enter ${type}`;
@@ -309,8 +313,8 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
                         maxLength={localField.type === 'checkbox' ? 250 : 50}
                       />
                     </div>
-                    {/* Hide placeholder for radio and checkbox fields */}
-                    {localField.type !== 'radio' && localField.type !== 'checkbox' && (
+                    {/* Hide placeholder for radio, checkbox, and date fields */}
+                    {localField.type !== 'radio' && localField.type !== 'checkbox' && localField.type !== 'date' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Placeholder</label>
                         <input
