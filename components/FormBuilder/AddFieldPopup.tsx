@@ -40,7 +40,7 @@ const AddFieldPopup: React.FC<AddFieldPopupProps> = ({ isOpen, pendingFieldType,
           placeholder = '';
         } else if (type === 'date') {
           // Date fields don't use placeholders (date picker shows format instead)
-          label = type === 'text' ? 'New text field' : `New ${type} field`;
+          label = `New ${type} field`;
           placeholder = '';
         } else {
           label = type === 'text' ? 'New text field' : `New ${type} field`;
