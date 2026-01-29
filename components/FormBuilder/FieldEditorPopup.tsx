@@ -252,8 +252,8 @@ const FieldEditorPopup: React.FC<FieldEditorPopupProps> = ({ isOpen, selectedFie
                         maxLength={localField.type === 'checkbox' ? 250 : 50}
                       />
                     </div>
-                    {/* Hide placeholder for radio and checkbox fields */}
-                    {localField.type !== 'radio' && localField.type !== 'checkbox' && (
+                    {/* Hide placeholder for radio, checkbox, and date fields */}
+                    {localField.type !== 'radio' && localField.type !== 'checkbox' && localField.type !== 'date' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Placeholder</label>
                         <input
