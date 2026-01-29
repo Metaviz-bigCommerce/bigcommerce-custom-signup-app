@@ -670,7 +670,7 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
             </div>
 
             <div className="flex-1 min-w-0">
-              <h3 className={`text-base sm:text-lg md:text-xl font-bold ${theme.accentColor} mb-0.5 sm:mb-1 truncate`}>
+              <h3 className="text-base sm:text-lg md:text-xl font-bold text-black mb-0.5 sm:mb-1 truncate">
                 {requestName || 'Unknown Applicant'}
               </h3>
               <p className="text-slate-600 text-[11px] sm:text-xs md:text-sm flex items-center gap-1 sm:gap-1.5 mb-1.5 sm:mb-2 truncate">
@@ -920,7 +920,7 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                                         );
                                       })()
                                     ) : (
-                                      <div className="text-xs sm:text-sm text-slate-900 break-words font-normal leading-relaxed">
+                                      <div className="text-xs sm:text-sm text-slate-900 break-words font-normal leading-relaxed" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                                         {formatFieldValue(k, v)}
                                       </div>
                                     )}
@@ -1007,7 +1007,7 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                                     );
                                   })()
                                 ) : (
-                                  <div className="text-xs sm:text-sm text-slate-900 break-words font-normal leading-relaxed">
+                                  <div className="text-xs sm:text-sm text-slate-900 break-words font-normal leading-relaxed" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                                     {formatFieldValue(k, v)}
                                   </div>
                                 )}
