@@ -52,4 +52,7 @@ export interface Db {
     getNotificationConfig(storeHash: string): Promise<{ enabled: boolean; notifyEmail: string | null }>;
     setNotificationConfig(storeHash: string, config: { enabled: boolean; notifyEmail: string | null }): Promise<void>;
     getStoreOwnerEmail(storeHash: string): Promise<string | null>;
+    getSharedBranding(storeHash: string): Promise<any>;
+    setSharedBranding(storeHash: string, branding: any): Promise<void>;
+    migrateSharedBranding(storeHash: string): Promise<void>;
 }

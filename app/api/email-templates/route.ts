@@ -19,12 +19,6 @@ export async function GET(req: NextRequest) {
 		
 		const { storeHash } = session;
 		
-		// Auto-migrate if needed (one-time, async, don't wait for response)
-		// This ensures existing data is migrated to new structure
-		db.migrateSharedBranding(storeHash).catch(err => {
-			logger.warn('Background migration failed (non-critical)', err, logContext);
-		});
-		
 		// Use cached email templates
 		const templates = await getCachedEmailTemplates(storeHash, () => db.getEmailTemplates(storeHash));
 		
