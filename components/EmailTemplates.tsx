@@ -272,7 +272,7 @@ const Section = React.memo(({
   onToggle: (id: string) => void;
   isShared?: boolean;
 }) => (
-  <div className={`border rounded-xl overflow-hidden transition-all ${
+  <div className={`border rounded-xl ${isShared && isExpanded ? 'overflow-visible' : 'overflow-hidden'} transition-all ${
     isShared 
       ? 'border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm' 
       : 'border-slate-200 bg-white'
@@ -324,7 +324,7 @@ const Section = React.memo(({
       )}
     </button>
     {isExpanded && (
-      <div className={`p-4 sm:p-5 space-y-4 border-t ${
+      <div className={`p-4 sm:p-5 space-y-4 border-t ${isShared ? 'overflow-visible' : ''} ${
         isShared ? 'border-emerald-100 bg-white/50' : 'border-slate-100'
       }`}>
         {children}
@@ -1116,8 +1116,22 @@ const EmailTemplates: React.FC = () => {
     
     setSaving(true);
     try {
-      // Validate that templates don't contain legacy shared branding fields
-      for (const [key, template] of Object.entries(emailTemplates)) {
+      // Clean templates by removing legacy shared branding fields from design
+      // This must be done first because syncSharedBrandingToTemplates adds these fields for preview
+      const toSave: Templates = Object.fromEntries(
+        (Object.keys(emailTemplates) as TemplateKey[]).map((k) => {
+          const t = emailTemplates[k];
+          const { logoUrl, bannerUrl, socialLinks, ...cleanDesign } = t.design || {};
+          return [k, { 
+            ...t, 
+            design: cleanDesign,
+            useHtml: true
+          }];
+        })
+      ) as Templates;
+      
+      // Validate that cleaned templates don't contain legacy shared branding fields
+      for (const [key, template] of Object.entries(toSave)) {
         if (template.design) {
           const design = template.design as any;
           if (design.logoUrl !== undefined || design.bannerUrl !== undefined || design.socialLinks !== undefined) {
@@ -1126,17 +1140,6 @@ const EmailTemplates: React.FC = () => {
           }
         }
       }
-      
-      // Save templates and shared branding separately
-      const toSave: Templates = Object.fromEntries(
-        (Object.keys(emailTemplates) as TemplateKey[]).map((k) => {
-          const t = emailTemplates[k];
-          return [k, { 
-            ...t, 
-            useHtml: true
-          }];
-        })
-      ) as Templates;
       await fetch(`/api/email-templates?context=${encodeURIComponent(context)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1451,7 +1454,13 @@ const EmailTemplates: React.FC = () => {
                 {/* Quick add preset platforms */}
                 <div className="relative" ref={dropdownRef}>
                   <button
-                    onClick={() => setShowSocialDropdown(!showSocialDropdown)}
+                    onClick={() => {
+                      // Ensure the section is expanded when opening the dropdown
+                      if (!expandedSections.sharedBranding) {
+                        toggleSection('sharedBranding');
+                      }
+                      setShowSocialDropdown(!showSocialDropdown);
+                    }}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 text-slate-600 rounded-xl hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all cursor-pointer text-sm"
                   >
                     <Plus className="w-4 h-4 flex-shrink-0" />
