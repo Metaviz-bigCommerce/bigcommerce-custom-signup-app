@@ -38,7 +38,7 @@ const NOTIFICATION_TEMPLATES: Record<NotificationTemplateKey, EmailTemplate> = {
 Please review this request in your dashboard and take appropriate action. You can <span style="color:#059669;font-weight:700;">approve</span> the request, <span style="color:#dc2626;font-weight:700;">reject</span> it, or <span style="color:#3b82f6;font-weight:700;">Request Resubmission</span> from the applicant.`,
 		design: {
 			title: 'New Signup Request',
-			greeting: 'Hello there,',
+			greeting: 'Hello Store Owner,',
 			primaryColor: '#059669', // Green color for new requests
 			background: '#f0fdf4', // Light green background
 		}
