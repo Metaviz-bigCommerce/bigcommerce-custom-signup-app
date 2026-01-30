@@ -1004,13 +1004,12 @@ const EmailTemplates: React.FC = () => {
               }
             };
 
-            // Load shared branding from API (new structure) or extract from templates (backward compatibility)
+            // Load shared branding from API
             let sharedLogoUrl: string | undefined;
             let sharedBannerUrl: string | undefined;
             let sharedSocialLinks: SocialLink[] | undefined;
             
             if (sharedBrandingFromApi) {
-              // Use shared branding from API (new structure)
               sharedLogoUrl = sharedBrandingFromApi.logoUrl;
               sharedBannerUrl = sharedBrandingFromApi.bannerUrl;
               sharedSocialLinks = (sharedBrandingFromApi.socialLinks || []).map((social: SocialLink) => {
@@ -1023,30 +1022,6 @@ const EmailTemplates: React.FC = () => {
                 }
                 return social;
               });
-            } else {
-              // Backward compatibility: extract from templates (first non-empty found)
-              (Object.keys(templates) as TemplateKey[]).forEach((k) => {
-                const loaded = templates[k];
-                if (loaded?.design) {
-                  if (!sharedLogoUrl && loaded.design.logoUrl) {
-                    sharedLogoUrl = loaded.design.logoUrl;
-                  }
-                  if (!sharedBannerUrl && loaded.design.bannerUrl) {
-                    sharedBannerUrl = loaded.design.bannerUrl;
-                  }
-                  if (!sharedSocialLinks && loaded.design.socialLinks && loaded.design.socialLinks.length > 0) {
-                    sharedSocialLinks = (loaded.design.socialLinks as SocialLink[]).map((social: SocialLink) => {
-                      if (!social.iconUrl && (social.name || social.url)) {
-                        return {
-                          ...social,
-                          iconUrl: getSocialIconUrlSvg(social.name || '', social.url || '')
-                        };
-                      }
-                      return social;
-                    });
-                  }
-                }
-              });
             }
             
             // Merge templates with shared branding values
@@ -1055,51 +1030,33 @@ const EmailTemplates: React.FC = () => {
                 const loaded = templates[k];
                 const defaultTemplate = defaultTemplates[k];
                 
+                // Validate that loaded template doesn't contain legacy shared branding fields
+                if (loaded?.design) {
+                  const design = loaded.design as any;
+                  if (design.logoUrl !== undefined || design.bannerUrl !== undefined || design.socialLinks !== undefined) {
+                    throw new Error(`Template ${k} contains legacy shared branding fields. Templates must not contain logoUrl, bannerUrl, or socialLinks.`);
+                  }
+                }
+                
                 // If loaded template exists, merge it with defaults
                 if (loaded) {
-                  // Special handling for moreInfo template migration from "Info Request" to "Resubmission Request"
-                  let subject = loaded.subject ?? defaultTemplate.subject;
-                  let body = loaded.body ?? defaultTemplate.body;
-                  let title = loaded.design?.title ?? defaultTemplate.design?.title;
-                  
-                  if (k === 'moreInfo') {
-                    // Detect old "Info Request" template and migrate to new "Resubmission Request" format
-                    const isOldTemplate = 
-                      (subject.includes('Additional Details Needed') || subject.includes('Additional Details')) ||
-                      (body.includes('require the following information') && !body.includes('resubmit')) ||
-                      (title === 'We Need a Little More Information');
-                    
-                    if (isOldTemplate) {
-                      // Migrate to new resubmission template
-                      subject = defaultTemplate.subject;
-                      body = defaultTemplate.body;
-                      title = defaultTemplate.design?.title;
-                    }
-                  }
-                  
                   return [k, {
-                    // Use saved values (or migrated values), fallback to defaults
-                    subject,
-                    body,
+                    subject: loaded.subject ?? defaultTemplate.subject,
+                    body: loaded.body ?? defaultTemplate.body,
                     html: loaded.html ?? null,
                     useHtml: loaded.useHtml ?? true,
                     design: loaded.design ? {
-                      // Merge design: use saved values, fallback to defaults only if not set
-                      title,
+                      title: loaded.design.title ?? defaultTemplate.design?.title,
                       greeting: loaded.design.greeting ?? defaultTemplate.design?.greeting,
                       primaryColor: loaded.design.primaryColor ?? defaultTemplate.design?.primaryColor ?? defaultBranding[k].primaryColor,
                       background: loaded.design.background ?? defaultTemplate.design?.background ?? defaultBranding[k].background,
                       footerNote: loaded.design.footerNote ?? defaultTemplate.design?.footerNote,
-                      // Use saved arrays if they exist (even if empty), otherwise use defaults
-                      // For moreInfo, migrate empty CTA array to new default CTA
-                      ctas: k === 'moreInfo' && (!loaded.design.ctas || loaded.design.ctas.length === 0) 
-                        ? (defaultTemplate.design?.ctas || [])
-                        : (loaded.design.ctas !== undefined ? loaded.design.ctas : (defaultTemplate.design?.ctas || [])),
+                      ctas: loaded.design.ctas !== undefined ? loaded.design.ctas : (defaultTemplate.design?.ctas || []),
                       footerLinks: loaded.design.footerLinks !== undefined ? loaded.design.footerLinks : (defaultTemplate.design?.footerLinks || []),
                     } : defaultTemplate.design,
                   }];
                 } else {
-                  // No saved template, use default (shared branding is handled separately)
+                  // No saved template, use default
                   return [k, defaultTemplate];
                 }
               })
@@ -1159,20 +1116,27 @@ const EmailTemplates: React.FC = () => {
     
     setSaving(true);
     try {
-      // Remove shared branding fields from templates before saving
+      // Validate that templates don't contain legacy shared branding fields
+      for (const [key, template] of Object.entries(emailTemplates)) {
+        if (template.design) {
+          const design = template.design as any;
+          if (design.logoUrl !== undefined || design.bannerUrl !== undefined || design.socialLinks !== undefined) {
+            toast.showError(`Template ${key} contains legacy shared branding fields. Please refresh and try again.`);
+            return;
+          }
+        }
+      }
+      
+      // Save templates and shared branding separately
       const toSave: Templates = Object.fromEntries(
         (Object.keys(emailTemplates) as TemplateKey[]).map((k) => {
           const t = emailTemplates[k];
-          const { logoUrl, bannerUrl, socialLinks, ...designWithoutShared } = t.design || {};
           return [k, { 
             ...t, 
-            useHtml: true,
-            design: designWithoutShared
+            useHtml: true
           }];
         })
       ) as Templates;
-      
-      // Save templates and shared branding separately
       await fetch(`/api/email-templates?context=${encodeURIComponent(context)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

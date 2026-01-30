@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, setDoc, updateDoc, deleteField, addDoc, serverTimestamp, query, orderBy, limit as fsLimit, startAfter, where } from 'firebase/firestore';
 import { SessionProps } from '../../types';
-import type { EmailConfig, EmailTemplates, SharedBranding } from '../email';
+import type { EmailConfig, EmailTemplate, EmailTemplates, SharedBranding } from '../email';
 import { env } from '../env';
 
 // Firebase config and initialization
@@ -394,22 +394,6 @@ export async function getEmailTemplates(storeHash: string) {
   if (!storeHash) throw new Error('Missing storeHash');
   const ref = doc(db, 'stores', storeHash);
   const snap = await getDoc(ref);
-  
-  // Auto-migrate on load if needed (one-time, async, don't wait)
-  if (snap.exists()) {
-    const data = snap.data() as any;
-    const templates = data?.emailTemplates || {};
-    // If templates have shared branding but sharedBranding doesn't exist, migrate
-    const hasSharedBrandingInTemplates = Object.values(templates).some((t: any) => 
-      t?.design?.logoUrl || t?.design?.bannerUrl || (t?.design?.socialLinks && Array.isArray(t.design.socialLinks) && t.design.socialLinks.length > 0)
-    );
-    if (hasSharedBrandingInTemplates && !templates.sharedBranding) {
-      // Trigger migration in background (don't wait)
-      migrateSharedBranding(storeHash).catch(err => {
-        console.error('Failed to auto-migrate shared branding:', err);
-      });
-    }
-  }
 
   // Default footer links
   const defaultFooterLinks = [
@@ -483,106 +467,34 @@ export async function getEmailTemplates(storeHash: string) {
   const data = snap.data() as any;
   const savedTemplates = data?.emailTemplates || {};
   
-  // Migrate old moreInfo template to new resubmission format
-  // Also clean up any greeting from body (greeting is handled separately in design.greeting)
-  if (savedTemplates.moreInfo) {
-    const oldTemplate = savedTemplates.moreInfo;
-    const bodyLower = (oldTemplate.body || '').toLowerCase();
-    const subjectLower = (oldTemplate.subject || '').toLowerCase();
-    
-    // Detect old "Info Request" format - check if it doesn't mention "resubmit" or "resubmission"
-    const isOldFormat = 
-      subjectLower.includes('additional details needed') ||
-      subjectLower.includes('additional details') ||
-      (bodyLower.includes('require the following information') && !bodyLower.includes('resubmit') && !bodyLower.includes('resubmission')) ||
-      oldTemplate.design?.title === 'We Need a Little More Information' ||
-      (!bodyLower.includes('resubmit') && !bodyLower.includes('resubmission') && bodyLower.includes('require'));
-    
-    // Always remove greeting from body if present (greeting is handled separately)
-    let cleanedBody = oldTemplate.body || '';
-    if (cleanedBody) {
-      // Remove common greeting patterns from the start of the body
-      cleanedBody = cleanedBody
-        .replace(/^Hi\s+\{\{name\}\},?\s*\n?/i, '')
-        .replace(/^Hello\s+\{\{name\}\},?\s*\n?/i, '')
-        .replace(/^Dear\s+\{\{name\}\},?\s*\n?/i, '')
-        .trim();
-    }
-    
-    if (isOldFormat) {
-      // Migrate to new format - update subject and body, preserve design if it exists
-      let migratedBody = defaults.moreInfo.body;
-      if (cleanedBody && cleanedBody.includes('resubmit')) {
-        // Body already has resubmission content, use cleaned version
-        migratedBody = cleanedBody;
+  // Validate that templates don't contain legacy shared branding fields
+  for (const [key, template] of Object.entries(savedTemplates)) {
+    const t = template as any;
+    if (t?.design) {
+      if (t.design.logoUrl !== undefined || t.design.bannerUrl !== undefined || t.design.socialLinks !== undefined) {
+        throw new Error(`Legacy shared branding fields detected in template ${key}. Templates must not contain logoUrl, bannerUrl, or socialLinks. Use sharedBranding instead.`);
       }
-      
-      const migratedTemplate = {
-        ...oldTemplate,
-        subject: defaults.moreInfo.subject,
-        body: migratedBody,
-        design: oldTemplate.design ? {
-          ...oldTemplate.design,
-          title: oldTemplate.design.title === 'We Need a Little More Information' ? 'Resubmission Required' : (oldTemplate.design.title || 'Resubmission Required'),
-        } : oldTemplate.design,
-      };
-      
-      savedTemplates.moreInfo = migratedTemplate;
-      
-      // Save migrated template back to database (async, don't wait)
-      updateDoc(ref, {
-        'emailTemplates.moreInfo': migratedTemplate,
-      } as any).catch(err => {
-        console.error('Failed to save migrated template:', err);
-      });
-    } else if (cleanedBody !== oldTemplate.body) {
-      // Not old format, but has greeting in body - clean it up
-      const cleanedTemplate = {
-        ...oldTemplate,
-        body: cleanedBody,
-      };
-      
-      savedTemplates.moreInfo = cleanedTemplate;
-      
-      // Save cleaned template back to database (async, don't wait)
-      updateDoc(ref, {
-        'emailTemplates.moreInfo': cleanedTemplate,
-      } as any).catch(err => {
-        console.error('Failed to save cleaned template:', err);
-      });
     }
   }
   
-  // Strip shared branding fields from loaded templates (they should be loaded separately via getSharedBranding)
-  const cleanedTemplates = Object.fromEntries(
-    Object.entries({ ...defaults, ...savedTemplates }).map(([key, template]) => {
-      if (template.design) {
-        const { logoUrl, bannerUrl, socialLinks, ...designWithoutShared } = template.design;
-        return [key, { ...template, design: designWithoutShared }];
-      }
-      return [key, template];
-    })
-  ) as EmailTemplates;
-  
-  return cleanedTemplates;
+  return { ...defaults, ...savedTemplates } as EmailTemplates;
 }
 
 export async function setEmailTemplates(storeHash: string, templates: EmailTemplates) {
   if (!storeHash) throw new Error('Missing storeHash');
-  const ref = doc(db, 'stores', storeHash);
   
-  // Strip shared branding fields from templates before saving
-  const cleanedTemplates = Object.fromEntries(
-    Object.entries(templates).map(([key, template]) => {
-      if (template.design) {
-        const { logoUrl, bannerUrl, socialLinks, ...designWithoutShared } = template.design;
-        return [key, { ...template, design: designWithoutShared }];
+  // Validate that templates don't contain legacy shared branding fields
+  for (const [key, template] of Object.entries(templates)) {
+    if (template.design) {
+      const design = template.design as any;
+      if (design.logoUrl !== undefined || design.bannerUrl !== undefined || design.socialLinks !== undefined) {
+        throw new Error(`Cannot save template ${key} with legacy shared branding fields. Templates must not contain logoUrl, bannerUrl, or socialLinks. Use sharedBranding instead.`);
       }
-      return [key, template];
-    })
-  ) as EmailTemplates;
+    }
+  }
   
-  await setDoc(ref, { emailTemplates: cleanedTemplates }, { merge: true } as any);
+  const ref = doc(db, 'stores', storeHash);
+  await setDoc(ref, { emailTemplates: templates }, { merge: true } as any);
 }
 
 export async function getSharedBranding(storeHash: string): Promise<SharedBranding | null> {
@@ -605,92 +517,6 @@ export async function setSharedBranding(storeHash: string, branding: SharedBrand
   }, { merge: true } as any);
 }
 
-/**
- * Migration function: Extracts shared branding from templates and moves it to dedicated location
- * This should be called once per store to migrate existing data to the new structure
- */
-export async function migrateSharedBranding(storeHash: string): Promise<void> {
-  if (!storeHash) throw new Error('Missing storeHash');
-  const ref = doc(db, 'stores', storeHash);
-  const snap = await getDoc(ref);
-  
-  if (!snap.exists()) return;
-  
-  const data = snap.data() as any;
-  const templates = data?.emailTemplates || {};
-  
-  // Check if shared branding already exists in new location
-  if (templates.sharedBranding) {
-    // Already migrated, just clean up templates
-    await cleanupTemplatesFromSharedBranding(storeHash);
-    return;
-  }
-  
-  // Extract shared branding from templates (use first non-empty found)
-  let extractedBranding: SharedBranding = {};
-  const templateKeys = ['signup', 'approval', 'rejection', 'moreInfo', 'resubmissionConfirmation'];
-  
-  for (const key of templateKeys) {
-    const template = templates[key];
-    if (template?.design) {
-      // Extract logoUrl
-      if (!extractedBranding.logoUrl && template.design.logoUrl) {
-        extractedBranding.logoUrl = template.design.logoUrl;
-      }
-      // Extract bannerUrl
-      if (!extractedBranding.bannerUrl && template.design.bannerUrl) {
-        extractedBranding.bannerUrl = template.design.bannerUrl;
-      }
-      // Extract socialLinks
-      if (!extractedBranding.socialLinks && template.design.socialLinks && Array.isArray(template.design.socialLinks) && template.design.socialLinks.length > 0) {
-        extractedBranding.socialLinks = template.design.socialLinks;
-      }
-    }
-  }
-  
-  // Save extracted branding to new location (if any was found)
-  if (extractedBranding.logoUrl || extractedBranding.bannerUrl || extractedBranding.socialLinks) {
-    await setSharedBranding(storeHash, extractedBranding);
-  }
-  
-  // Clean up templates (remove shared branding fields)
-  await cleanupTemplatesFromSharedBranding(storeHash);
-}
-
-/**
- * Helper function: Removes shared branding fields from all templates
- */
-async function cleanupTemplatesFromSharedBranding(storeHash: string): Promise<void> {
-  if (!storeHash) throw new Error('Missing storeHash');
-  const ref = doc(db, 'stores', storeHash);
-  const snap = await getDoc(ref);
-  
-  if (!snap.exists()) return;
-  
-  const data = snap.data() as any;
-  const templates = data?.emailTemplates || {};
-  
-  const templateKeys = ['signup', 'approval', 'rejection', 'moreInfo', 'resubmissionConfirmation'];
-  const updates: Record<string, any> = {};
-  let hasUpdates = false;
-  
-  for (const key of templateKeys) {
-    const template = templates[key];
-    if (template?.design) {
-      const { logoUrl, bannerUrl, socialLinks, ...designWithoutShared } = template.design;
-      
-      // Only update if shared branding fields exist
-      if (logoUrl !== undefined || bannerUrl !== undefined || socialLinks !== undefined) {
-        updates[`emailTemplates.${key}.design`] = designWithoutShared;
-        hasUpdates = true;
-      }
-    }
-  }
-  
-  if (hasUpdates) {
-    await updateDoc(ref, updates);
-  }
-}
 
 export async function getEmailConfig(storeHash: string) {
   if (!storeHash) throw new Error('Missing storeHash');
