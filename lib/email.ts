@@ -7,8 +7,6 @@ type TemplateKey = 'signup' | 'approval' | 'rejection' | 'moreInfo' | 'resubmiss
 type NotificationTemplateKey = 'ownerNewSignup' | 'ownerResubmission';
 
 export type EmailTemplateDesign = {
-	logoUrl?: string;
-	bannerUrl?: string;
 	primaryColor?: string;
 	background?: string;
 	title?: string;
@@ -16,6 +14,12 @@ export type EmailTemplateDesign = {
 	ctas?: Array<{ id: string; text: string; url: string }>;
 	footerNote?: string;
 	footerLinks?: Array<{ id: string; text: string; url: string }>;
+};
+
+// Shared branding fields that apply across all email templates
+export type SharedBranding = {
+	logoUrl?: string;
+	bannerUrl?: string;
 	socialLinks?: Array<{ id: string; name: string; url: string; iconUrl: string }>;
 };
 
@@ -172,8 +176,9 @@ function getSocialIconUrlPng(platformName: string, url: string): string {
 		return 'https://img.icons8.com/color/24/000000/telegram-app.png';
 	}
 	
-	// Default: return empty string if platform not recognized
-	return '';
+	// Default: return a generic social media icon if platform not recognized
+	// This ensures we always have a valid icon URL, preventing broken images
+	return 'https://img.icons8.com/color/24/000000/share.png';
 }
 
 // Default titles per template type
@@ -186,8 +191,10 @@ const defaultTitles: Record<TemplateKey, string> = {
 };
 
 // Generate HTML email from template with actual user variables
-export function generateEmailHtml(template: EmailTemplate, vars: Record<string, string | number | null | undefined>, templateKey: TemplateKey): string {
-	const d = template.design || {};
+export function generateEmailHtml(template: EmailTemplate, vars: Record<string, string | number | null | undefined>, templateKey: TemplateKey, sharedBranding?: SharedBranding): string {
+	// Merge shared branding into design for rendering
+	const design = template.design || {};
+	const d = { ...design, ...sharedBranding } as EmailTemplateDesign & SharedBranding;
 	const brand = d.primaryColor || '#2563eb';
 	const bg = d.background || '#f7fafc';
 	const platformName = String(vars.platform_name || vars.store_name || 'Store');
@@ -222,10 +229,15 @@ export function generateEmailHtml(template: EmailTemplate, vars: Record<string, 
 			emailIconUrl = getSocialIconUrlPng(social.name || '', social.url || '');
 		}
 		
+		// Ensure we always have a valid iconUrl (fallback to default share icon)
+		if (!emailIconUrl || emailIconUrl.trim().length === 0) {
+			emailIconUrl = 'https://img.icons8.com/color/24/000000/share.png';
+		}
+		
 		return { ...social, iconUrl: emailIconUrl };
 	}).filter(social => {
-		// Only include links with valid icon URLs
-		return social.iconUrl && social.iconUrl.trim().length > 0;
+		// Only include links with valid icon URLs and at least a name or URL
+		return social.iconUrl && social.iconUrl.trim().length > 0 && (social.name || social.url);
 	});
 	
 	const socialsRow = socialLinks.length > 0
@@ -540,8 +552,9 @@ export async function trySendTemplatedEmail(args: {
 	config?: EmailConfig | null;
 	templateKey?: TemplateKey;
 	isCustomerEmail?: boolean; // When true, validates SMTP before sending
+	sharedBranding?: SharedBranding; // Shared branding to merge into template
 }): Promise<{ ok: boolean; skipped?: boolean; reason?: string; error?: string }> {
-	const { to, template, vars, from, replyTo, config, templateKey, isCustomerEmail } = args;
+	const { to, template, vars, from, replyTo, config, templateKey, isCustomerEmail, sharedBranding } = args;
 	if (!to) return { ok: false, skipped: true, reason: 'No recipient email address provided' };
 	
 	// For customer emails, validate SMTP is configured and customer emails are enabled
@@ -564,8 +577,8 @@ export async function trySendTemplatedEmail(args: {
 	let html: string | null = null;
 	if (template?.useHtml) {
 		if (template.design && templateKey) {
-			// Generate HTML from design with actual user variables
-			html = generateEmailHtml(template, vars, templateKey);
+			// Generate HTML from design with actual user variables and shared branding
+			html = generateEmailHtml(template, vars, templateKey, sharedBranding);
 		} else if (template.html) {
 			// Use pre-generated HTML and replace variables
 			html = renderTemplate(String(template.html), vars);

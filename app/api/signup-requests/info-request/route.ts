@@ -56,8 +56,9 @@ export async function POST(req: NextRequest) {
 			return apiErrors.notFound('Signup request', requestId);
 		}
 		
-		// Get email templates and config
+		// Get email templates, shared branding, and config
 		const templates = await db.getEmailTemplates(storeHash);
+		const sharedBranding = await db.getSharedBranding(storeHash);
 		const config = await db.getEmailConfig(storeHash);
 		const name = extractName(request.data || {});
 		const email = request.email || null;
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
 					config,
 					templateKey: 'moreInfo',
 					isCustomerEmail: true, // Customer emails require store owner SMTP
+					sharedBranding: sharedBranding || undefined,
 				});
 				
 				if (emailResult.ok) {

@@ -286,8 +286,9 @@ export async function POST(req: NextRequest) {
       
       // Send emails (best-effort, don't fail request)
       try {
-        const templates = await db.getEmailTemplates(storeHash);
-        const config = await db.getEmailConfig(storeHash);
+          const templates = await db.getEmailTemplates(storeHash);
+          const sharedBranding = await db.getSharedBranding(storeHash);
+          const config = await db.getEmailConfig(storeHash);
         const name = extractName(data);
         const platformName = env.PLATFORM_NAME || storeHash || 'Store';
         
@@ -311,8 +312,9 @@ export async function POST(req: NextRequest) {
               replyTo: config?.replyTo || undefined,
               config,
               templateKey,
-              isCustomerEmail: true, // Customer emails require store owner SMTP
-            });
+                isCustomerEmail: true, // Customer emails require store owner SMTP
+                sharedBranding: sharedBranding || undefined,
+              });
             if (!emailResult.ok && emailResult.skipped) {
               logger.warn('Signup confirmation email skipped', { ...logContext, email, reason: emailResult.reason || 'Unknown reason' });
             }
@@ -511,8 +513,9 @@ export async function POST(req: NextRequest) {
       
       // Send emails (best-effort, don't fail request)
       try {
-        const templates = await db.getEmailTemplates(storeHash);
-        const config = await db.getEmailConfig(storeHash);
+          const templates = await db.getEmailTemplates(storeHash);
+          const sharedBranding = await db.getSharedBranding(storeHash);
+          const config = await db.getEmailConfig(storeHash);
         const name = extractName(data);
         const platformName = env.PLATFORM_NAME || storeHash || 'Store';
         
@@ -536,8 +539,9 @@ export async function POST(req: NextRequest) {
               replyTo: config?.replyTo || undefined,
               config,
               templateKey,
-              isCustomerEmail: true, // Customer emails require store owner SMTP
-            });
+                isCustomerEmail: true, // Customer emails require store owner SMTP
+                sharedBranding: sharedBranding || undefined,
+              });
             if (!emailResult.ok && emailResult.skipped) {
               logger.warn('Signup confirmation email skipped', { ...logContext, email, reason: emailResult.reason || 'Unknown reason' });
             }

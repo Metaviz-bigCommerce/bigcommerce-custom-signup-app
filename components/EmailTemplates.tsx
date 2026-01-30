@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { 
   Eye, Mail, Check, X, Send, Palette, Type, Link2, 
   Share2, ChevronDown, ChevronRight, Sparkles, Save,
-  TestTube, RefreshCw, MousePointer, Plus, Trash2, GripVertical, RotateCcw
+  TestTube, RefreshCw, MousePointer, Plus, Trash2, GripVertical, RotateCcw, Globe, AlertCircle
 } from 'lucide-react';
 import { useSession } from '@/context/session';
 import { useToast } from '@/components/common/Toast';
@@ -151,8 +151,9 @@ const getSocialIconUrlSvg = (platformName: string, url: string): string => {
     return 'https://cdn.simpleicons.org/telegram/26A5E4';
   }
   
-  // Default: return empty string if platform not recognized
-  return '';
+  // Default: return a generic share icon if platform not recognized
+  // This ensures we always have a valid icon URL, preventing broken images
+  return 'https://cdn.simpleicons.org/share/2563eb';
 };
 
 // Function to automatically detect social media platform and return PNG icon URL (for email use)
@@ -203,18 +204,27 @@ const getSocialIconUrlPng = (platformName: string, url: string): string => {
     return 'https://img.icons8.com/color/24/000000/telegram-app.png';
   }
   
-  // Default: return empty string if platform not recognized
-  return '';
+  // Default: return a generic social media icon if platform not recognized
+  // This ensures we always have a valid icon URL, preventing broken images
+  return 'https://img.icons8.com/color/24/000000/share.png';
 };
 
-// Pre-configured social media platforms (optional quick-add)
-// Icons are automatically detected when platform is added (using SVG for in-app display)
-const presetSocialPlatforms: { name: string; iconUrl: string }[] = [
-  { name: 'Facebook', iconUrl: getSocialIconUrlSvg('Facebook', '') },
-  { name: 'Twitter/X', iconUrl: getSocialIconUrlSvg('Twitter/X', '') },
-  { name: 'Instagram', iconUrl: getSocialIconUrlSvg('Instagram', '') },
-  { name: 'LinkedIn', iconUrl: getSocialIconUrlSvg('LinkedIn', '') },
-  { name: 'YouTube', iconUrl: getSocialIconUrlSvg('YouTube', '') }
+// Social platform options with placeholder URLs for dropdown
+const socialPlatformOptions: Array<{ name: string; placeholder: string; iconUrl: string | null }> = [
+  { name: 'Facebook', placeholder: 'https://facebook.com/yourpage', iconUrl: getSocialIconUrlSvg('Facebook', '') },
+  { name: 'Twitter/X', placeholder: 'https://twitter.com/yourhandle', iconUrl: getSocialIconUrlSvg('Twitter/X', '') },
+  { name: 'LinkedIn', placeholder: 'https://linkedin.com/company/yourcompany', iconUrl: getSocialIconUrlSvg('LinkedIn', '') },
+  { name: 'YouTube', placeholder: 'https://youtube.com/@yourchannel', iconUrl: getSocialIconUrlSvg('YouTube', '') },
+  { name: 'Instagram', placeholder: 'https://instagram.com/yourhandle', iconUrl: getSocialIconUrlSvg('Instagram', '') },
+  { name: 'TikTok', placeholder: 'https://tiktok.com/@yourhandle', iconUrl: getSocialIconUrlSvg('TikTok', '') },
+  { name: 'Pinterest', placeholder: 'https://pinterest.com/yourprofile', iconUrl: getSocialIconUrlSvg('Pinterest', '') },
+  { name: 'Snapchat', placeholder: 'https://snapchat.com/add/yourhandle', iconUrl: getSocialIconUrlSvg('Snapchat', '') },
+  { name: 'Reddit', placeholder: 'https://reddit.com/user/yourhandle', iconUrl: getSocialIconUrlSvg('Reddit', '') },
+  { name: 'Discord', placeholder: 'https://discord.gg/yourserver', iconUrl: getSocialIconUrlSvg('Discord', '') },
+  { name: 'GitHub', placeholder: 'https://github.com/yourusername', iconUrl: getSocialIconUrlSvg('GitHub', '') },
+  { name: 'WhatsApp', placeholder: 'https://wa.me/yournumber', iconUrl: getSocialIconUrlSvg('WhatsApp', '') },
+  { name: 'Telegram', placeholder: 'https://t.me/yourhandle', iconUrl: getSocialIconUrlSvg('Telegram', '') },
+  { name: 'Custom', placeholder: '', iconUrl: null }
 ];
 
 // Default CTAs per template type
@@ -251,7 +261,8 @@ const Section = React.memo(({
   icon: SectionIcon, 
   children,
   isExpanded,
-  onToggle
+  onToggle,
+  isShared = false
 }: { 
   id: string; 
   title: string; 
@@ -259,24 +270,63 @@ const Section = React.memo(({
   children: React.ReactNode;
   isExpanded: boolean;
   onToggle: (id: string) => void;
+  isShared?: boolean;
 }) => (
-  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+  <div className={`border rounded-xl overflow-hidden transition-all ${
+    isShared 
+      ? 'border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm' 
+      : 'border-slate-200 bg-white'
+  }`}>
     <button
       onClick={() => onToggle(id)}
-      className="w-full flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer touch-manipulation"
+      className={`w-full flex items-center justify-between px-4 sm:px-5 py-3 sm:py-3.5 transition-all cursor-pointer touch-manipulation ${
+        isShared
+          ? 'bg-gradient-to-r from-emerald-50/80 to-emerald-50/40 hover:from-emerald-50 hover:to-emerald-50/60'
+          : 'bg-slate-50 hover:bg-slate-100'
+      }`}
     >
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-        <SectionIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 flex-shrink-0" />
-        <span className="font-medium text-slate-700 text-xs sm:text-sm truncate">{title}</span>
+      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+          isShared
+            ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm'
+            : 'bg-slate-200'
+        }`}>
+          <SectionIcon className={`w-4.5 h-4.5 sm:w-5 sm:h-5 flex-shrink-0 ${
+            isShared ? 'text-white' : 'text-slate-600'
+          }`} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className={`font-semibold text-sm sm:text-base truncate ${
+              isShared ? 'text-emerald-900' : 'text-slate-700'
+            }`}>
+              {title}
+            </span>
+            {isShared && (
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full uppercase tracking-wide">
+                Shared
+              </span>
+            )}
+          </div>
+          {isShared && (
+            <p className="text-xs text-emerald-700/80 mt-0.5 truncate">Applies to all email templates</p>
+          )}
+        </div>
       </div>
       {isExpanded ? (
-        <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" />
+        <ChevronDown className={`w-4 h-4 flex-shrink-0 ml-2 transition-transform ${
+          isShared ? 'text-emerald-600' : 'text-slate-400'
+        }`} />
       ) : (
-        <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" />
+        <ChevronRight className={`w-4 h-4 flex-shrink-0 ml-2 transition-transform ${
+          isShared ? 'text-emerald-600' : 'text-slate-400'
+        }`} />
       )}
     </button>
     {isExpanded && (
-      <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 border-t border-slate-100">
+      <div className={`p-4 sm:p-5 space-y-4 border-t ${
+        isShared ? 'border-emerald-100 bg-white/50' : 'border-slate-100'
+      }`}>
         {children}
       </div>
     )}
@@ -349,13 +399,72 @@ const EmailTemplates: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [showTestEmailModal, setShowTestEmailModal] = useState(false);
+  // Shared branding state - extracted from templates
+  const [sharedBranding, setSharedBranding] = useState<{ logoUrl?: string; bannerUrl?: string; socialLinks?: SocialLink[] }>({
+    logoUrl: undefined,
+    bannerUrl: undefined,
+    socialLinks: []
+  });
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    content: true,
+    sharedBranding: true, // Expanded by default
+    content: false, // Collapsed by default
     branding: false,
     button: false,
-    footer: false,
-    socials: false
+    footer: false
   });
+  const [showSocialDropdown, setShowSocialDropdown] = useState(false);
+  
+  // URL validation state
+  const [validationErrors, setValidationErrors] = useState<{
+    logoUrl?: string;
+    bannerUrl?: string;
+    socialLinks?: Record<number, string>;
+  }>({});
+  
+  // Logo preview state
+  const [logoPreviewError, setLogoPreviewError] = useState(false);
+  const [logoPreviewLoading, setLogoPreviewLoading] = useState(false);
+
+  // URL validation helper function
+  const isValidUrl = useCallback((url: string): boolean => {
+    if (!url || url.trim() === '') return true; // Empty is valid (optional fields)
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Validate shared branding fields
+  const validateSharedBranding = useCallback(() => {
+    const errors: typeof validationErrors = {};
+    
+    // Validate logo URL
+    if (sharedBranding.logoUrl && !isValidUrl(sharedBranding.logoUrl)) {
+      errors.logoUrl = 'Please enter a valid URL';
+    }
+    
+    // Validate banner URL
+    if (sharedBranding.bannerUrl && !isValidUrl(sharedBranding.bannerUrl)) {
+      errors.bannerUrl = 'Please enter a valid URL';
+    }
+    
+    // Validate social links
+    const socialErrors: Record<number, string> = {};
+    (sharedBranding.socialLinks || []).forEach((social, index) => {
+      // If name is provided, URL should be valid (or empty for placeholder)
+      if (social.name && social.url && !isValidUrl(social.url)) {
+        socialErrors[index] = 'Please enter a valid URL';
+      }
+    });
+    if (Object.keys(socialErrors).length > 0) {
+      errors.socialLinks = socialErrors;
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [sharedBranding, isValidUrl]);
 
   const renderVars = useMemo(() => ({
     name: 'John Doe',
@@ -376,6 +485,25 @@ const EmailTemplates: React.FC = () => {
 
   const toggleSection = useCallback((section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  }, []);
+
+  // Helper function to sync shared branding to all templates
+  const syncSharedBrandingToTemplates = useCallback((shared: { logoUrl?: string; bannerUrl?: string; socialLinks?: SocialLink[] }) => {
+    setEmailTemplates(prev => {
+      const updated: Templates = {} as Templates;
+      (Object.keys(prev) as TemplateKey[]).forEach(key => {
+        updated[key] = {
+          ...prev[key],
+          design: {
+            ...(prev[key].design || {}),
+            logoUrl: shared.logoUrl,
+            bannerUrl: shared.bannerUrl,
+            socialLinks: shared.socialLinks
+          }
+        };
+      });
+      return updated;
+    });
   }, []);
 
   // useCallback handlers for all input fields to prevent focus loss
@@ -434,24 +562,36 @@ const EmailTemplates: React.FC = () => {
   }, [selectedTemplate]);
 
   const handleLogoUrlChange = useCallback((value: string) => {
-    setEmailTemplates(prev => ({
-      ...prev,
-      [selectedTemplate]: { 
-        ...prev[selectedTemplate], 
-        design: { ...(prev[selectedTemplate].design||{}), logoUrl: value } 
-      }
-    }));
-  }, [selectedTemplate]);
+    const updatedShared = { ...sharedBranding, logoUrl: value };
+    setSharedBranding(updatedShared);
+    syncSharedBrandingToTemplates(updatedShared);
+    
+    // Validate on change
+    if (value && !isValidUrl(value)) {
+      setValidationErrors(prev => ({ ...prev, logoUrl: 'Please enter a valid URL' }));
+    } else {
+      setValidationErrors(prev => {
+        const { logoUrl, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, [sharedBranding, syncSharedBrandingToTemplates, isValidUrl]);
 
   const handleBannerUrlChange = useCallback((value: string) => {
-    setEmailTemplates(prev => ({
-      ...prev,
-      [selectedTemplate]: { 
-        ...prev[selectedTemplate], 
-        design: { ...(prev[selectedTemplate].design||{}), bannerUrl: value } 
-      }
-    }));
-  }, [selectedTemplate]);
+    const updatedShared = { ...sharedBranding, bannerUrl: value };
+    setSharedBranding(updatedShared);
+    syncSharedBrandingToTemplates(updatedShared);
+    
+    // Validate on change
+    if (value && !isValidUrl(value)) {
+      setValidationErrors(prev => ({ ...prev, bannerUrl: 'Please enter a valid URL' }));
+    } else {
+      setValidationErrors(prev => {
+        const { bannerUrl, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, [sharedBranding, syncSharedBrandingToTemplates, isValidUrl]);
 
   const handleFooterNoteChange = useCallback((value: string) => {
     setEmailTemplates(prev => ({
@@ -520,53 +660,102 @@ const EmailTemplates: React.FC = () => {
   }, [selectedTemplate]);
 
   const handleSocialNameChange = useCallback((index: number, value: string) => {
-    setEmailTemplates(prev => {
-      const newSocials = [...(prev[selectedTemplate].design?.socialLinks || [])];
-      const currentSocial = newSocials[index];
-      const currentUrl = currentSocial?.url || '';
-      // Automatically detect and set SVG icon URL for in-app display (lightweight, colorful)
-      const autoIconUrl = getSocialIconUrlSvg(value, currentUrl);
-      newSocials[index] = { 
-        ...newSocials[index], 
-        name: value,
-        iconUrl: autoIconUrl || currentSocial?.iconUrl || ''
-      };
-      return {
-        ...prev,
-        [selectedTemplate]: { 
-          ...prev[selectedTemplate], 
-          design: { ...(prev[selectedTemplate].design||{}), socialLinks: newSocials } 
-        }
-      };
-    });
-  }, [selectedTemplate]);
+    const currentSocials = sharedBranding.socialLinks || [];
+    const newSocials = [...currentSocials];
+    const currentSocial = newSocials[index];
+    const currentUrl = currentSocial?.url || '';
+    // Automatically detect and set SVG icon URL for in-app display (lightweight, colorful)
+    const autoIconUrl = getSocialIconUrlSvg(value, currentUrl);
+    // Always ensure iconUrl is set - use auto-detected, existing, or default share icon
+    const finalIconUrl = autoIconUrl || currentSocial?.iconUrl || getSocialIconUrlSvg('', '') || 'https://img.icons8.com/color/24/000000/share.png';
+    newSocials[index] = { 
+      ...newSocials[index], 
+      name: value,
+      iconUrl: finalIconUrl
+    };
+    
+    const updatedShared = { ...sharedBranding, socialLinks: newSocials };
+    setSharedBranding(updatedShared);
+    syncSharedBrandingToTemplates(updatedShared);
+  }, [sharedBranding, syncSharedBrandingToTemplates]);
 
   const handleSocialUrlChange = useCallback((index: number, value: string) => {
-    setEmailTemplates(prev => {
-      const newSocials = [...(prev[selectedTemplate].design?.socialLinks || [])];
-      const currentSocial = newSocials[index];
-      const currentName = currentSocial?.name || '';
-      // Automatically detect and set SVG icon URL for in-app display (lightweight, colorful)
-      const autoIconUrl = getSocialIconUrlSvg(currentName, value);
-      newSocials[index] = { 
-        ...newSocials[index], 
-        url: value,
-        iconUrl: autoIconUrl || currentSocial?.iconUrl || ''
-      };
-      return {
+    const currentSocials = sharedBranding.socialLinks || [];
+    const newSocials = [...currentSocials];
+    const currentSocial = newSocials[index];
+    const currentName = currentSocial?.name || '';
+    // Automatically detect and set SVG icon URL for in-app display (lightweight, colorful)
+    const autoIconUrl = getSocialIconUrlSvg(currentName, value);
+    // Always ensure iconUrl is set - use auto-detected, existing, or default share icon
+    const finalIconUrl = autoIconUrl || currentSocial?.iconUrl || getSocialIconUrlSvg('', '') || 'https://img.icons8.com/color/24/000000/share.png';
+    newSocials[index] = { 
+      ...newSocials[index], 
+      url: value,
+      iconUrl: finalIconUrl
+    };
+    
+    const updatedShared = { ...sharedBranding, socialLinks: newSocials };
+    setSharedBranding(updatedShared);
+    syncSharedBrandingToTemplates(updatedShared);
+    
+    // Validate on change - if name is provided, URL should be valid (or empty for placeholder)
+    if (currentName && value && !isValidUrl(value)) {
+      setValidationErrors(prev => ({
         ...prev,
-        [selectedTemplate]: { 
-          ...prev[selectedTemplate], 
-          design: { ...(prev[selectedTemplate].design||{}), socialLinks: newSocials } 
-        }
+        socialLinks: { ...(prev.socialLinks || {}), [index]: 'Please enter a valid URL' }
+      }));
+    } else {
+      setValidationErrors(prev => {
+        const socialErrors = { ...(prev.socialLinks || {}) };
+        delete socialErrors[index];
+        const { socialLinks, ...rest } = prev;
+        return Object.keys(socialErrors).length > 0 
+          ? { ...rest, socialLinks: socialErrors }
+          : rest;
+      });
+    }
+  }, [sharedBranding, syncSharedBrandingToTemplates, isValidUrl]);
+
+  const handleSocialDelete = useCallback((index: number) => {
+    const currentSocials = sharedBranding.socialLinks || [];
+    const newSocials = currentSocials.filter((_, i) => i !== index);
+    const updatedShared = { ...sharedBranding, socialLinks: newSocials };
+    setSharedBranding(updatedShared);
+    syncSharedBrandingToTemplates(updatedShared);
+  }, [sharedBranding, syncSharedBrandingToTemplates]);
+
+  const handleSocialAdd = useCallback((platform?: { name: string; placeholder: string; iconUrl: string | null }) => {
+    let newSocial: SocialLink;
+    
+    if (platform) {
+      // Platform selected from dropdown
+      const iconUrl = platform.iconUrl || getSocialIconUrlSvg(platform.name, '') || 'https://cdn.simpleicons.org/share/2563eb';
+      newSocial = { 
+        id: `social-${Date.now()}`, 
+        name: platform.name, 
+        url: platform.placeholder, 
+        iconUrl: iconUrl 
       };
-    });
-  }, [selectedTemplate]);
+    } else {
+      // Custom option
+      const defaultIconUrl = getSocialIconUrlSvg('', '') || 'https://cdn.simpleicons.org/share/2563eb';
+      newSocial = { id: `social-${Date.now()}`, name: '', url: '', iconUrl: defaultIconUrl };
+    }
+    
+    const currentSocials = sharedBranding.socialLinks || [];
+    const newSocials = [...currentSocials, newSocial];
+    const updatedShared = { ...sharedBranding, socialLinks: newSocials };
+    setSharedBranding(updatedShared);
+    syncSharedBrandingToTemplates(updatedShared);
+    setShowSocialDropdown(false);
+  }, [sharedBranding, syncSharedBrandingToTemplates]);
 
   // Removed handleSocialIconUrlChange - icon URLs are now automatically detected
 
   const generateHtml = (t: Template) => {
-    const d: Design = t.design || {};
+    // Merge shared branding into design for preview rendering
+    const design = t.design || {};
+    const d = { ...design, ...sharedBranding } as Design & typeof sharedBranding;
     const brand = d.primaryColor || '#2563eb';
     const bg = d.background || '#f7fafc';
     const logo = d.logoUrl ? `<img src="${d.logoUrl}" alt="${renderTemplate('{{platform_name}}')}" width="200" height="auto" border="0" style="max-width:200px;height:auto;display:block;margin:0 auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic">` : `<div style="font-size:32px;font-weight:900;letter-spacing:.3px;color:${brand};text-align:center">${renderTemplate('{{platform_name}}')}</div>`;
@@ -584,7 +773,7 @@ const EmailTemplates: React.FC = () => {
     
     // Generate social links row (custom icons) - convert SVG to PNG for email compatibility
     // In-app we use SVG (stored in iconUrl), but for email we need PNG format
-    const socialLinks = (d.socialLinks || [])
+    const socialLinks = ((d.socialLinks || sharedBranding.socialLinks) || [])
       .map(social => {
         // If iconUrl is SVG or empty, convert to PNG for email
         const iconUrl = social.iconUrl || '';
@@ -595,11 +784,16 @@ const EmailTemplates: React.FC = () => {
           emailIconUrl = getSocialIconUrlPng(social.name || '', social.url || '');
         }
         
+        // Ensure we always have a valid iconUrl (fallback to default share icon)
+        if (!emailIconUrl || emailIconUrl.trim().length === 0) {
+          emailIconUrl = 'https://img.icons8.com/color/24/000000/share.png';
+        }
+        
         return { ...social, iconUrl: emailIconUrl };
       })
       .filter(social => {
-        // Only include links with valid icon URLs
-        return social.iconUrl && social.iconUrl.trim().length > 0;
+        // Only include links with valid icon URLs and at least a name or URL
+        return social.iconUrl && social.iconUrl.trim().length > 0 && (social.name || social.url);
       });
     
     const socialsRow = socialLinks.length > 0
@@ -747,8 +941,9 @@ const EmailTemplates: React.FC = () => {
         const res = await fetch(`/api/email-templates?context=${encodeURIComponent(context)}`);
         if (res.ok) {
           const json = await res.json();
-          // API returns { error: false, data: { templates } }
+          // API returns { error: false, data: { templates, sharedBranding } }
           const templates = json?.data?.templates || json?.templates;
+          const sharedBrandingFromApi = json?.data?.sharedBranding || json?.sharedBranding || null;
           if (templates) {
             // Merge loaded templates with defaults to ensure all required fields and branding are present
             const defaultTemplates: Templates = {
@@ -809,6 +1004,52 @@ const EmailTemplates: React.FC = () => {
               }
             };
 
+            // Load shared branding from API (new structure) or extract from templates (backward compatibility)
+            let sharedLogoUrl: string | undefined;
+            let sharedBannerUrl: string | undefined;
+            let sharedSocialLinks: SocialLink[] | undefined;
+            
+            if (sharedBrandingFromApi) {
+              // Use shared branding from API (new structure)
+              sharedLogoUrl = sharedBrandingFromApi.logoUrl;
+              sharedBannerUrl = sharedBrandingFromApi.bannerUrl;
+              sharedSocialLinks = (sharedBrandingFromApi.socialLinks || []).map((social: SocialLink) => {
+                // Ensure iconUrl is set - auto-detect if missing
+                if (!social.iconUrl && (social.name || social.url)) {
+                  return {
+                    ...social,
+                    iconUrl: getSocialIconUrlSvg(social.name || '', social.url || '')
+                  };
+                }
+                return social;
+              });
+            } else {
+              // Backward compatibility: extract from templates (first non-empty found)
+              (Object.keys(templates) as TemplateKey[]).forEach((k) => {
+                const loaded = templates[k];
+                if (loaded?.design) {
+                  if (!sharedLogoUrl && loaded.design.logoUrl) {
+                    sharedLogoUrl = loaded.design.logoUrl;
+                  }
+                  if (!sharedBannerUrl && loaded.design.bannerUrl) {
+                    sharedBannerUrl = loaded.design.bannerUrl;
+                  }
+                  if (!sharedSocialLinks && loaded.design.socialLinks && loaded.design.socialLinks.length > 0) {
+                    sharedSocialLinks = (loaded.design.socialLinks as SocialLink[]).map((social: SocialLink) => {
+                      if (!social.iconUrl && (social.name || social.url)) {
+                        return {
+                          ...social,
+                          iconUrl: getSocialIconUrlSvg(social.name || '', social.url || '')
+                        };
+                      }
+                      return social;
+                    });
+                  }
+                }
+              });
+            }
+            
+            // Merge templates with shared branding values
             const merged: Templates = Object.fromEntries(
               (Object.keys(defaultTemplates) as TemplateKey[]).map((k) => {
                 const loaded = templates[k];
@@ -848,8 +1089,6 @@ const EmailTemplates: React.FC = () => {
                       greeting: loaded.design.greeting ?? defaultTemplate.design?.greeting,
                       primaryColor: loaded.design.primaryColor ?? defaultTemplate.design?.primaryColor ?? defaultBranding[k].primaryColor,
                       background: loaded.design.background ?? defaultTemplate.design?.background ?? defaultBranding[k].background,
-                      logoUrl: loaded.design.logoUrl ?? defaultTemplate.design?.logoUrl,
-                      bannerUrl: loaded.design.bannerUrl ?? defaultTemplate.design?.bannerUrl,
                       footerNote: loaded.design.footerNote ?? defaultTemplate.design?.footerNote,
                       // Use saved arrays if they exist (even if empty), otherwise use defaults
                       // For moreInfo, migrate empty CTA array to new default CTA
@@ -857,15 +1096,24 @@ const EmailTemplates: React.FC = () => {
                         ? (defaultTemplate.design?.ctas || [])
                         : (loaded.design.ctas !== undefined ? loaded.design.ctas : (defaultTemplate.design?.ctas || [])),
                       footerLinks: loaded.design.footerLinks !== undefined ? loaded.design.footerLinks : (defaultTemplate.design?.footerLinks || []),
-                      socialLinks: loaded.design.socialLinks !== undefined ? loaded.design.socialLinks : (defaultTemplate.design?.socialLinks || []),
                     } : defaultTemplate.design,
                   }];
                 } else {
-                  // No saved template, use default
+                  // No saved template, use default (shared branding is handled separately)
                   return [k, defaultTemplate];
                 }
               })
             ) as Templates;
+            
+            // Initialize shared branding state from API or extracted values
+            setSharedBranding({
+              logoUrl: sharedLogoUrl,
+              bannerUrl: sharedBannerUrl,
+              socialLinks: sharedSocialLinks || []
+            });
+            
+            // Preserve saved values as-is - no final pass syncing that overwrites saved values
+            // The UI handles syncing when user makes changes, not on load
             setEmailTemplates(merged);
           }
         }
@@ -875,24 +1123,65 @@ const EmailTemplates: React.FC = () => {
     load();
   }, [context]);
 
+  // Close dropdown when clicking outside
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowSocialDropdown(false);
+      }
+    };
+    if (showSocialDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showSocialDropdown]);
+
+  // Reset logo preview when URL changes
+  useEffect(() => {
+    if (sharedBranding.logoUrl && isValidUrl(sharedBranding.logoUrl)) {
+      setLogoPreviewLoading(true);
+      setLogoPreviewError(false);
+    } else {
+      setLogoPreviewLoading(false);
+      setLogoPreviewError(false);
+    }
+  }, [sharedBranding.logoUrl, isValidUrl]);
+
   const save = async () => {
     if (!context) return;
+    
+    // Validate before saving
+    if (!validateSharedBranding()) {
+      toast.showError('Please fix validation errors before saving.');
+      return;
+    }
+    
     setSaving(true);
     try {
-      // Save templates with design - HTML will be generated on-the-fly when sending emails with actual user variables
+      // Remove shared branding fields from templates before saving
       const toSave: Templates = Object.fromEntries(
         (Object.keys(emailTemplates) as TemplateKey[]).map((k) => {
           const t = emailTemplates[k];
-          // Don't generate HTML with preview vars - save design and let email sending generate HTML with actual vars
-          return [k, { ...t, useHtml: true }];
+          const { logoUrl, bannerUrl, socialLinks, ...designWithoutShared } = t.design || {};
+          return [k, { 
+            ...t, 
+            useHtml: true,
+            design: designWithoutShared
+          }];
         })
       ) as Templates;
+      
+      // Save templates and shared branding separately
       await fetch(`/api/email-templates?context=${encodeURIComponent(context)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templates: toSave }),
+        body: JSON.stringify({ 
+          templates: toSave,
+          sharedBranding: sharedBranding 
+        }),
       });
-      toast.showSuccess('Templates saved successfully!');
+      toast.showSuccess('Shared branding and templates saved successfully!');
     } catch (error: unknown) {
       toast.showError(getUserFriendlyError(error, 'Unable to save the email templates. Please try again.'));
     } finally {
@@ -959,8 +1248,8 @@ const EmailTemplates: React.FC = () => {
               </button>
               <button
                 onClick={save}
-                disabled={saving}
-                className="flex items-center justify-center gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 bg-white text-slate-900 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold hover:bg-blue-50 transition-all cursor-pointer shadow-lg shadow-white/25 disabled:opacity-50 w-full sm:w-auto"
+                disabled={saving || Object.keys(validationErrors).length > 0}
+                className="flex items-center justify-center gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 bg-white text-slate-900 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold hover:bg-blue-50 transition-all cursor-pointer shadow-lg shadow-white/25 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
               >
                 {saving ? (
                   <>
@@ -1034,8 +1323,232 @@ const EmailTemplates: React.FC = () => {
             );
           })()}
 
-          {/* Content Section */}
-          <Section id="content" title="Email Content" icon={Type} isExpanded={expandedSections.content} onToggle={toggleSection}>
+          {/* Shared Branding Section */}
+          <Section id="sharedBranding" title="Shared Branding" icon={Globe} isExpanded={expandedSections.sharedBranding} onToggle={toggleSection} isShared={true}>
+            <div className="space-y-4">
+              <div className="p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition-colors">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-sm font-semibold text-slate-700 mb-0.5">Logo URL</label>
+                    <p className="text-xs text-slate-500">Displayed at max 200px width in emails</p>
+                  </div>
+                </div>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={sharedBranding.logoUrl || ''}
+                    onChange={(e) => {
+                      setLogoPreviewError(false);
+                      setLogoPreviewLoading(true);
+                      handleLogoUrlChange(e.target.value);
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all bg-white font-mono ${
+                      validationErrors.logoUrl
+                        ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-500'
+                    }`}
+                    placeholder="https://your-domain.com/logo.png"
+                    aria-invalid={!!validationErrors.logoUrl}
+                    aria-describedby={validationErrors.logoUrl ? 'logo-url-error' : undefined}
+                  />
+                  {validationErrors.logoUrl && (
+                    <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-500" />
+                  )}
+                </div>
+                {validationErrors.logoUrl && (
+                  <p id="logo-url-error" className="text-xs text-rose-600 mt-2 flex items-center gap-1.5">
+                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                    {validationErrors.logoUrl}
+                  </p>
+                )}
+              </div>
+
+              <div className="p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition-colors">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                    <Palette className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-sm font-semibold text-slate-700 mb-0.5">Banner Image URL</label>
+                    <p className="text-xs text-slate-500">Scales to fit email width</p>
+                  </div>
+                </div>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={sharedBranding.bannerUrl || ''}
+                    onChange={(e) => handleBannerUrlChange(e.target.value)}
+                    className={`w-full px-4 py-3 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all bg-white font-mono ${
+                      validationErrors.bannerUrl
+                        ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-500'
+                    }`}
+                    placeholder="https://your-domain.com/banner.jpg"
+                    aria-invalid={!!validationErrors.bannerUrl}
+                    aria-describedby={validationErrors.bannerUrl ? 'banner-url-error' : undefined}
+                  />
+                  {validationErrors.bannerUrl && (
+                    <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-500" />
+                  )}
+                </div>
+                {validationErrors.bannerUrl && (
+                  <p id="banner-url-error" className="text-xs text-rose-600 mt-2 flex items-center gap-1.5">
+                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                    {validationErrors.bannerUrl}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 sm:mt-5">
+              <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-2 sm:mb-3">Social Media Links</label>
+              <div className="space-y-3">
+                {(sharedBranding.socialLinks || []).map((social, index) => (
+                  <div key={social.id} className="p-3 sm:p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition-colors">
+                    <div className="flex items-center gap-3">
+                      {/* Icon Preview */}
+                      <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {social.iconUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img 
+                            src={social.iconUrl} 
+                            alt={social.name || 'Social icon'} 
+                            className="w-7 h-7 object-contain" 
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const parent = e.currentTarget.parentElement;
+                              if (parent && !parent.querySelector('.error-indicator')) {
+                                const errorSpan = document.createElement('span');
+                                errorSpan.className = 'error-indicator text-xs font-bold text-slate-400';
+                                errorSpan.textContent = '?';
+                                parent.appendChild(errorSpan);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <Share2 className="w-5 h-5 text-slate-400" />
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <input
+                          type="text"
+                          value={social.name}
+                          onChange={(e) => handleSocialNameChange(index, e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                          placeholder="Platform name"
+                        />
+                        <div className="relative">
+                          <input
+                            type="url"
+                            value={social.url}
+                            onChange={(e) => handleSocialUrlChange(index, e.target.value)}
+                            className={`w-full px-3 py-2 pr-8 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all bg-white ${
+                              validationErrors.socialLinks?.[index]
+                                ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20'
+                                : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-500'
+                            }`}
+                            placeholder="https://..."
+                            aria-invalid={!!validationErrors.socialLinks?.[index]}
+                            aria-describedby={validationErrors.socialLinks?.[index] ? `social-url-error-${index}` : undefined}
+                          />
+                          {validationErrors.socialLinks?.[index] && (
+                            <AlertCircle className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-500" />
+                          )}
+                        </div>
+                        {validationErrors.socialLinks?.[index] && (
+                          <p id={`social-url-error-${index}`} className="text-xs text-rose-600 flex items-center gap-1.5">
+                            <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                            {validationErrors.socialLinks[index]}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <button
+                        onClick={() => handleSocialDelete(index)}
+                        className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer flex-shrink-0 border border-transparent hover:border-rose-200"
+                        aria-label={`Delete ${social.name || 'social link'}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                
+                {(sharedBranding.socialLinks || []).length === 0 && (
+                  <div className="text-center py-6 text-slate-400 text-xs sm:text-sm bg-slate-50 rounded-xl border border-dashed border-slate-200 px-3">
+                    No social links added. Add your social media profiles.
+                  </div>
+                )}
+                
+                {/* Quick add preset platforms */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setShowSocialDropdown(!showSocialDropdown)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 text-slate-600 rounded-xl hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all cursor-pointer text-sm"
+                  >
+                    <Plus className="w-4 h-4 flex-shrink-0" />
+                    <span>Add Social Link</span>
+                    <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${showSocialDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showSocialDropdown && (
+                    <div className="absolute z-10 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
+                      <div className="p-2">
+                        {socialPlatformOptions.map((platform) => {
+                          const alreadyAdded = (sharedBranding.socialLinks || []).some(
+                            s => s.name.toLowerCase() === platform.name.toLowerCase()
+                          );
+                          const isCustom = platform.name === 'Custom';
+                          
+                          return (
+                            <button
+                              key={platform.name}
+                              disabled={!isCustom && alreadyAdded}
+                              onClick={() => {
+                                if (isCustom) {
+                                  handleSocialAdd();
+                                } else {
+                                  handleSocialAdd(platform);
+                                }
+                              }}
+                              className={`w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-all ${
+                                !isCustom && alreadyAdded
+                                  ? 'bg-slate-50 text-slate-400 cursor-not-allowed opacity-60'
+                                  : 'hover:bg-blue-50 hover:text-blue-600 text-slate-700 cursor-pointer'
+                              }`}
+                            >
+                              {platform.iconUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={platform.iconUrl} alt={platform.name} className="w-5 h-5 flex-shrink-0" />
+                              ) : (
+                                <Plus className="w-5 h-5 flex-shrink-0 text-slate-400" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{platform.name}</div>
+                                {platform.placeholder && (
+                                  <div className="text-xs text-slate-400 truncate">{platform.placeholder}</div>
+                                )}
+                              </div>
+                              {!isCustom && alreadyAdded && <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Section>
+
+          {/* Template-Specific Settings Group */}
+          <div className="mt-4 sm:mt-5 bg-slate-50/50 border border-slate-200 rounded-xl p-4 sm:p-5 space-y-3">
+            {/* Content Section */}
+            <Section id="content" title="Email Content" icon={Type} isExpanded={expandedSections.content} onToggle={toggleSection}>
             <div>
               <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">Subject Line</label>
               <p className="text-xs text-slate-400 mb-2">Appears in the recipient&apos;s inbox</p>
@@ -1096,10 +1609,10 @@ const EmailTemplates: React.FC = () => {
                 ))}
               </div>
             </div>
-          </Section>
+            </Section>
 
-          {/* Branding Section */}
-          <Section id="branding" title="Branding & Colors" icon={Palette} isExpanded={expandedSections.branding} onToggle={toggleSection}>
+            {/* Branding Section */}
+            <Section id="branding" title="Branding & Colors" icon={Palette} isExpanded={expandedSections.branding} onToggle={toggleSection}>
             <div className="space-y-3 sm:space-y-4">
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-2">Primary Color</label>
@@ -1170,33 +1683,18 @@ const EmailTemplates: React.FC = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-2">Logo URL</label>
-              <input
-                type="url"
-                value={emailTemplates[selectedTemplate].design?.logoUrl || ''}
-                onChange={(e) => handleLogoUrlChange(e.target.value)}
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm sm:text-base text-slate-900 transition-all"
-                placeholder="https://your-domain.com/logo.png"
-              />
-              <p className="text-xs text-slate-400 mt-1">Must be a full HTTPS URL. Image will be displayed at max 200px width.</p>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-2.5 sm:p-3 mt-4">
+              <div className="flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-blue-700 leading-relaxed">
+                  <span className="font-semibold">Note:</span> Logo, banner image, and social media links are managed in the <span className="font-medium">&quot;Shared Branding&quot;</span> section above. These settings apply to all email templates.
+                </div>
+              </div>
             </div>
+            </Section>
 
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-2">Banner Image URL</label>
-              <input
-                type="url"
-                value={emailTemplates[selectedTemplate].design?.bannerUrl || ''}
-                onChange={(e) => handleBannerUrlChange(e.target.value)}
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm sm:text-base text-slate-900 transition-all"
-                placeholder="https://your-domain.com/banner.jpg"
-              />
-              <p className="text-xs text-slate-400 mt-1">Must be a full HTTPS URL. Image will scale to fit email width.</p>
-            </div>
-          </Section>
-
-          {/* CTA Buttons Section */}
-          <Section id="button" title="Call-to-Action Buttons" icon={MousePointer} isExpanded={expandedSections.button} onToggle={toggleSection}>
+            {/* CTA Buttons Section */}
+            <Section id="button" title="Call-to-Action Buttons" icon={MousePointer} isExpanded={expandedSections.button} onToggle={toggleSection}>
             <div className="space-y-3">
               {(emailTemplates[selectedTemplate].design?.ctas || []).map((cta, index) => (
                 <div key={cta.id} className="flex items-start gap-2 p-2 sm:p-3 bg-slate-50 rounded-xl border border-slate-200">
@@ -1333,156 +1831,8 @@ const EmailTemplates: React.FC = () => {
                 </button>
               </div>
             </div>
-          </Section>
-
-          {/* Socials Section */}
-          <Section id="socials" title="Social Media Links" icon={Share2} isExpanded={expandedSections.socials} onToggle={toggleSection}>
-            <div className="space-y-3">
-              {(emailTemplates[selectedTemplate].design?.socialLinks || []).map((social, index) => (
-                <div key={social.id} className="p-2 sm:p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    {/* Icon Preview */}
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {social.iconUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img 
-                          src={social.iconUrl} 
-                          alt={social.name} 
-                          className="w-6 h-6 sm:w-8 sm:h-8 object-contain" 
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            const parent = e.currentTarget.parentElement;
-                            if (parent && !parent.querySelector('.error-indicator')) {
-                              const errorSpan = document.createElement('span');
-                              errorSpan.className = 'error-indicator text-xs font-bold text-rose-400';
-                              errorSpan.textContent = '!';
-                              parent.appendChild(errorSpan);
-                            }
-                          }}
-                        />
-                      ) : (
-                        <span className="text-xs font-bold text-slate-400">?</span>
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 space-y-2 min-w-0">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={social.name}
-                          onChange={(e) => handleSocialNameChange(index, e.target.value)}
-                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                          placeholder="Platform name (e.g., Facebook, LinkedIn)"
-                        />
-                        <input
-                          type="url"
-                          value={social.url}
-                          onChange={(e) => handleSocialUrlChange(index, e.target.value)}
-                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                          placeholder="https://..."
-                        />
-                      </div>
-                      <p className="text-xs text-slate-400 mt-1">
-                        💡 Icon is automatically detected from platform name or URL. Supported: Facebook, Twitter/X, Instagram, LinkedIn, YouTube, TikTok, Pinterest, Snapchat, Reddit, Discord, GitHub, WhatsApp, Telegram.
-                      </p>
-                    </div>
-                    
-                    <button
-                      onClick={() => {
-                        const newSocials = (emailTemplates[selectedTemplate].design?.socialLinks || []).filter((_, i) => i !== index);
-                        setEmailTemplates({
-                          ...emailTemplates,
-                          [selectedTemplate]: { ...emailTemplates[selectedTemplate], design: { ...(emailTemplates[selectedTemplate].design||{}), socialLinks: newSocials } }
-                        });
-                      }}
-                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer flex-shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              
-              {(emailTemplates[selectedTemplate].design?.socialLinks || []).length === 0 && (
-                <div className="text-center py-6 text-slate-400 text-xs sm:text-sm bg-slate-50 rounded-xl border border-dashed border-slate-200 px-3">
-                  No social links added. Add your social media profiles.
-                </div>
-              )}
-              
-              {/* Quick add preset platforms */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-2">Quick Add Popular Platforms</label>
-                <p className="text-xs text-slate-400 mb-2">
-                  Icons are automatically detected and set when you add a platform.
-                </p>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {presetSocialPlatforms.map((preset) => {
-                    const alreadyAdded = (emailTemplates[selectedTemplate].design?.socialLinks || []).some(
-                      s => s.name.toLowerCase() === preset.name.toLowerCase()
-                    );
-                    return (
-                      <button
-                        key={preset.name}
-                        disabled={alreadyAdded}
-                        onClick={() => {
-                          // Auto-detect SVG icon URL for in-app display
-                          const autoIconUrl = getSocialIconUrlSvg(preset.name, '');
-                          const newSocial: SocialLink = { 
-                            id: `social-${Date.now()}`, 
-                            name: preset.name, 
-                            url: '', 
-                            iconUrl: autoIconUrl
-                          };
-                          const currentSocials = emailTemplates[selectedTemplate].design?.socialLinks || [];
-                          setEmailTemplates({
-                            ...emailTemplates,
-                            [selectedTemplate]: { ...emailTemplates[selectedTemplate], design: { ...(emailTemplates[selectedTemplate].design||{}), socialLinks: [...currentSocials, newSocial] } }
-                          });
-                        }}
-                        className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-lg border text-xs sm:text-sm transition-all cursor-pointer flex-shrink-0 ${
-                          alreadyAdded 
-                            ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-50' 
-                            : 'bg-white border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50'
-                        }`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={preset.iconUrl} alt={preset.name} className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-                        <span className="whitespace-nowrap">{preset.name}</span>
-                        {alreadyAdded && <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              
-              <div className="border-t border-slate-200 pt-3">
-                <button
-                  onClick={() => {
-                    const newSocial: SocialLink = { id: `social-${Date.now()}`, name: '', url: '', iconUrl: '' };
-                    const currentSocials = emailTemplates[selectedTemplate].design?.socialLinks || [];
-                    setEmailTemplates({
-                      ...emailTemplates,
-                      [selectedTemplate]: { ...emailTemplates[selectedTemplate], design: { ...(emailTemplates[selectedTemplate].design||{}), socialLinks: [...currentSocials, newSocial] } }
-                    });
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 text-slate-600 rounded-xl hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all cursor-pointer text-sm"
-                >
-                  <Plus className="w-4 h-4 flex-shrink-0" />
-                  <span>Add Custom Social Link</span>
-                </button>
-              </div>
-              
-              {/* Helper tip */}
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-2.5 sm:p-3">
-                <div className="flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-xs text-blue-700 leading-relaxed">
-                    <span className="font-semibold">Automatic Icon Detection:</span> Icons are automatically detected from the platform name or URL. Simply enter the platform name (e.g., &quot;Facebook&quot;) or paste the social media URL, and the icon will be set automatically.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Section>
+            </Section>
+          </div>
         </div>
 
         {/* Preview Panel */}
