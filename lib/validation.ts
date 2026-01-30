@@ -188,10 +188,21 @@ export const storeFormSchema = z.object({
   theme: formThemeSchema,
 });
 
-// Email template design schema
+// Shared branding schema - stored separately from templates
+export const sharedBrandingSchema = z.object({
+  logoUrl: z.union([z.string().url().max(500), z.literal('')]).optional().nullable(),
+  bannerUrl: z.union([z.string().url().max(500), z.literal('')]).optional().nullable(),
+  socialLinks: z.array(z.object({
+    id: z.string(),
+    name: z.string().max(100),
+    url: z.string().max(500),
+    // Allow empty strings for iconUrl - it will be auto-detected if missing
+    iconUrl: z.union([z.string().url().max(500), z.literal('')]),
+  })).optional().nullable(),
+});
+
+// Email template design schema - template-specific fields only (no shared branding)
 export const emailTemplateDesignSchema = z.object({
-  logoUrl: z.string().url().max(500).optional().nullable(),
-  bannerUrl: z.string().url().max(500).optional().nullable(),
   primaryColor: z.string().max(20).optional().nullable(),
   background: z.string().max(20).optional().nullable(),
   title: z.string().max(200).optional().nullable(),
@@ -206,12 +217,6 @@ export const emailTemplateDesignSchema = z.object({
     id: z.string(),
     text: z.string().max(100),
     url: z.string().max(500),
-  })).optional().nullable(),
-  socialLinks: z.array(z.object({
-    id: z.string(),
-    name: z.string().max(100),
-    url: z.string().max(500),
-    iconUrl: z.string().url().max(500),
   })).optional().nullable(),
 }).optional().nullable();
 

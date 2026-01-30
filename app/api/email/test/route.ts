@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
 		const key = String(body?.key || 'signup') as 'signup' | 'approval' | 'rejection' | 'moreInfo' | 'resubmissionConfirmation';
 		if (!to) return NextResponse.json({ message: 'Missing to' }, { status: 400 });
 		const templates = await db.getEmailTemplates(storeHash);
+		const sharedBranding = await db.getSharedBranding(storeHash);
 		const config = await db.getEmailConfig(storeHash);
 		const t = (templates as any)?.[key];
 		if (!t) return NextResponse.json({ message: 'Unknown template' }, { status: 400 });
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
 			replyTo: config?.replyTo || undefined,
 			config,
 			templateKey: key,
+			sharedBranding: sharedBranding || undefined,
 		});
 		return NextResponse.json({ ok: true, result: res }, { status: 200 });
 	} catch (e: any) {

@@ -127,6 +127,7 @@ export async function PATCH(req: NextRequest) {
       const request = await db.getSignupRequest(storeHash, id);
       if (request) {
         const templates = await db.getEmailTemplates(storeHash);
+        const sharedBranding = await db.getSharedBranding(storeHash);
         const config = await db.getEmailConfig(storeHash);
         const name = extractName(request.data || {});
         const email = request.email || null;
@@ -148,6 +149,7 @@ export async function PATCH(req: NextRequest) {
             config,
             templateKey: status === 'approved' ? 'approval' : status === 'rejected' ? 'rejection' : undefined,
             isCustomerEmail: true, // Customer emails require store owner SMTP
+            sharedBranding: sharedBranding || undefined,
           });
           
           if (emailResult.ok) {

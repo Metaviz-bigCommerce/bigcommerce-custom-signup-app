@@ -465,6 +465,7 @@ export async function POST(req: NextRequest) {
     // Send approval email (mirror existing behavior)
     try {
       const templates = await db.getEmailTemplates(storeHash);
+      const sharedBranding = await db.getSharedBranding(storeHash);
       const config = await db.getEmailConfig(storeHash);
       const platformName = env.PLATFORM_NAME || storeHash || 'Store';
       const emailResult = await trySendTemplatedEmail({
@@ -481,6 +482,7 @@ export async function POST(req: NextRequest) {
         config,
         templateKey: 'approval',
         isCustomerEmail: true, // Customer emails require store owner SMTP
+        sharedBranding: sharedBranding || undefined,
       });
       if (!emailResult.ok && emailResult.skipped) {
         console.warn('Approval email skipped:', emailResult.reason || 'Unknown reason');
