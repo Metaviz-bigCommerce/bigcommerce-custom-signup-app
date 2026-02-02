@@ -146,34 +146,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Check for rejected requests and delete them if found (after cooldown reset, user can resubmit)
-      // Note: This does NOT apply to pending requests - those are handled by duplicate check in createSignupRequest
-      if (email) {
-        try {
-          const rejectedRequests = await (db as any).findRejectedRequestsByEmail(storeHash, email);
-          if (rejectedRequests && rejectedRequests.length > 0) {
-            // Delete files from storage for all rejected requests
-            for (const rejectedRequest of rejectedRequests) {
-              if (rejectedRequest.files && rejectedRequest.files.length > 0) {
-                try {
-                  await deleteSignupRequestFiles(rejectedRequest.files);
-                } catch (fileDeleteError) {
-                  logger.error('Failed to delete files from rejected request', fileDeleteError, { ...logContext, requestId: rejectedRequest.id });
-                  // Continue even if file deletion fails
-                }
-              }
-              // Delete the rejected request
-              await db.deleteSignupRequest(storeHash, rejectedRequest.id);
-              logger.info('Deleted rejected request', { ...logContext, deletedRequestId: rejectedRequest.id, email });
-            }
-          }
-        } catch (rejectedCheckError) {
-          logger.error('Error checking for rejected requests', rejectedCheckError, { ...logContext, email });
-          // Continue with normal flow if check fails
-        }
-      }
-      
       // Create signup request first
+      // Note: This will check cooldown internally and throw COOLDOWN_ACTIVE error if cooldown is still active
       let created;
       try {
         created = await db.createSignupRequest(storeHash, {
@@ -281,6 +255,33 @@ export async function POST(req: NextRequest) {
             requestId
           );
           return applyCorsHeaders(req, res);
+        }
+      }
+      
+      // Now that the new request is successfully created, clean up old rejected requests
+      // This only runs if cooldown has expired (otherwise createSignupRequest would have thrown COOLDOWN_ACTIVE)
+      if (email) {
+        try {
+          const rejectedRequests = await (db as any).findRejectedRequestsByEmail(storeHash, email);
+          if (rejectedRequests && rejectedRequests.length > 0) {
+            // Delete files from storage for all rejected requests
+            for (const rejectedRequest of rejectedRequests) {
+              if (rejectedRequest.files && rejectedRequest.files.length > 0) {
+                try {
+                  await deleteSignupRequestFiles(rejectedRequest.files);
+                } catch (fileDeleteError) {
+                  logger.error('Failed to delete files from old rejected request', fileDeleteError, { ...logContext, requestId: rejectedRequest.id });
+                  // Continue even if file deletion fails
+                }
+              }
+              // Delete the rejected request
+              await db.deleteSignupRequest(storeHash, rejectedRequest.id);
+              logger.info('Cleaned up old rejected request after successful resubmission', { ...logContext, deletedRequestId: rejectedRequest.id, email });
+            }
+          }
+        } catch (cleanupError) {
+          logger.error('Error cleaning up old rejected requests', cleanupError, { ...logContext, email });
+          // Don't fail the request if cleanup fails - continue with success response
         }
       }
       
@@ -442,34 +443,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Check for rejected requests and delete them if found (after cooldown reset, user can resubmit)
-      // Note: This does NOT apply to pending requests - those are handled by duplicate check in createSignupRequest
-      if (emailLower) {
-        try {
-          const rejectedRequests = await (db as any).findRejectedRequestsByEmail(storeHash, emailLower);
-          if (rejectedRequests && rejectedRequests.length > 0) {
-            // Delete files from storage for all rejected requests
-            for (const rejectedRequest of rejectedRequests) {
-              if (rejectedRequest.files && rejectedRequest.files.length > 0) {
-                try {
-                  await deleteSignupRequestFiles(rejectedRequest.files);
-                } catch (fileDeleteError) {
-                  logger.error('Failed to delete files from rejected request', fileDeleteError, { ...logContext, requestId: rejectedRequest.id });
-                  // Continue even if file deletion fails
-                }
-              }
-              // Delete the rejected request
-              await db.deleteSignupRequest(storeHash, rejectedRequest.id);
-              logger.info('Deleted rejected request', { ...logContext, deletedRequestId: rejectedRequest.id, email: emailLower });
-            }
-          }
-        } catch (rejectedCheckError) {
-          logger.error('Error checking for rejected requests', rejectedCheckError, { ...logContext, email: emailLower });
-          // Continue with normal flow if check fails
-        }
-      }
-      
       // Create signup request
+      // Note: This will check cooldown internally and throw COOLDOWN_ACTIVE error if cooldown is still active
       let created;
       try {
         created = await db.createSignupRequest(storeHash, {
@@ -509,6 +484,33 @@ export async function POST(req: NextRequest) {
           return applyCorsHeaders(req, res);
         }
         throw createError;
+      }
+      
+      // Now that the new request is successfully created, clean up old rejected requests
+      // This only runs if cooldown has expired (otherwise createSignupRequest would have thrown COOLDOWN_ACTIVE)
+      if (emailLower) {
+        try {
+          const rejectedRequests = await (db as any).findRejectedRequestsByEmail(storeHash, emailLower);
+          if (rejectedRequests && rejectedRequests.length > 0) {
+            // Delete files from storage for all rejected requests
+            for (const rejectedRequest of rejectedRequests) {
+              if (rejectedRequest.files && rejectedRequest.files.length > 0) {
+                try {
+                  await deleteSignupRequestFiles(rejectedRequest.files);
+                } catch (fileDeleteError) {
+                  logger.error('Failed to delete files from old rejected request', fileDeleteError, { ...logContext, requestId: rejectedRequest.id });
+                  // Continue even if file deletion fails
+                }
+              }
+              // Delete the rejected request
+              await db.deleteSignupRequest(storeHash, rejectedRequest.id);
+              logger.info('Cleaned up old rejected request after successful resubmission', { ...logContext, deletedRequestId: rejectedRequest.id, email: emailLower });
+            }
+          }
+        } catch (cleanupError) {
+          logger.error('Error cleaning up old rejected requests', cleanupError, { ...logContext, email: emailLower });
+          // Don't fail the request if cleanup fails - continue with success response
+        }
       }
       
       // Send emails (best-effort, don't fail request)
