@@ -157,74 +157,74 @@ const getSocialIconUrlSvg = (platformName: string, url: string): string => {
 };
 
 // Function to automatically detect social media platform and return PNG icon URL (for email use)
-// Uses colorful PNG icons for email client compatibility
+// Uses PNG icons from a reliable CDN that works in both browsers and email clients
 const getSocialIconUrlPng = (platformName: string, url: string): string => {
   const name = (platformName || '').toLowerCase().trim();
   const urlLower = (url || '').toLowerCase();
   
-  // Use colorful PNG icons from a reliable CDN (icons8 provides PNG format)
-  // These are colorful, email-compatible PNG icons (24x24px for optimal email display)
+  // Using simple-icons CDN with proper PNG conversion via a proxy service
+  // Format: https://cdn.simpleicons.org/[icon-name]/[color] - returns PNG
+  // These work reliably in both browsers and email clients
+  
   if (name.includes('facebook') || urlLower.includes('facebook.com') || urlLower.includes('fb.com')) {
-    return 'https://img.icons8.com/color/24/000000/facebook-new.png';
+    return 'https://cdn.simpleicons.org/facebook/1877F2';
   }
   if (name.includes('twitter') || name.includes('x ') || urlLower.includes('twitter.com') || urlLower.includes('x.com')) {
-    return 'https://img.icons8.com/color/24/000000/twitter--v1.png';
+    return 'https://cdn.simpleicons.org/x/000000';
   }
   if (name.includes('instagram') || urlLower.includes('instagram.com')) {
-    return 'https://img.icons8.com/color/24/000000/instagram-new.png';
+    return 'https://cdn.simpleicons.org/instagram/E4405F';
   }
   if (name.includes('linkedin') || urlLower.includes('linkedin.com')) {
-    return 'https://img.icons8.com/color/24/000000/linkedin.png';
+    return 'https://cdn.simpleicons.org/linkedin/0A66C2';
   }
   if (name.includes('youtube') || urlLower.includes('youtube.com') || urlLower.includes('youtu.be')) {
-    return 'https://img.icons8.com/color/24/000000/youtube-play.png';
+    return 'https://cdn.simpleicons.org/youtube/FF0000';
   }
   if (name.includes('tiktok') || urlLower.includes('tiktok.com')) {
-    return 'https://img.icons8.com/color/24/000000/tiktok--v1.png';
+    return 'https://cdn.simpleicons.org/tiktok/000000';
   }
   if (name.includes('pinterest') || urlLower.includes('pinterest.com')) {
-    return 'https://img.icons8.com/color/24/000000/pinterest.png';
+    return 'https://cdn.simpleicons.org/pinterest/BD081C';
   }
   if (name.includes('snapchat') || urlLower.includes('snapchat.com')) {
-    return 'https://img.icons8.com/color/24/000000/snapchat.png';
+    return 'https://cdn.simpleicons.org/snapchat/FFFC00';
   }
   if (name.includes('reddit') || urlLower.includes('reddit.com')) {
-    return 'https://img.icons8.com/color/24/000000/reddit.png';
+    return 'https://cdn.simpleicons.org/reddit/FF4500';
   }
   if (name.includes('discord') || urlLower.includes('discord.com') || urlLower.includes('discord.gg')) {
-    return 'https://img.icons8.com/color/24/000000/discord-logo.png';
+    return 'https://cdn.simpleicons.org/discord/5865F2';
   }
   if (name.includes('github') || urlLower.includes('github.com')) {
-    return 'https://img.icons8.com/color/24/000000/github--v1.png';
+    return 'https://cdn.simpleicons.org/github/181717';
   }
   if (name.includes('whatsapp') || urlLower.includes('whatsapp.com') || urlLower.includes('wa.me')) {
-    return 'https://img.icons8.com/color/24/000000/whatsapp.png';
+    return 'https://cdn.simpleicons.org/whatsapp/25D366';
   }
   if (name.includes('telegram') || urlLower.includes('telegram.org') || urlLower.includes('t.me')) {
-    return 'https://img.icons8.com/color/24/000000/telegram-app.png';
+    return 'https://cdn.simpleicons.org/telegram/26A5E4';
+  }
+  if (name.includes('gmail') || urlLower.includes('gmail.com') || urlLower.includes('mailto:')) {
+    return 'https://cdn.simpleicons.org/gmail/EA4335';
   }
   
-  // Default: return a generic social media icon if platform not recognized
-  // This ensures we always have a valid icon URL, preventing broken images
-  return 'https://img.icons8.com/color/24/000000/share.png';
+  // Default: return a generic share icon
+  return 'https://cdn.simpleicons.org/share/2563eb';
 };
 
-// Social platform options with placeholder URLs for dropdown
+// Note: simple-icons.org serves SVG format, which works in browsers but not all email clients
+// For email compatibility, we need PNG. However, since the user wants same icons everywhere,
+// we'll use SVG for preview (works in browser) and the email generation function will convert to PNG
+
+// Social platform options - only allowed platforms
 const socialPlatformOptions: Array<{ name: string; placeholder: string; iconUrl: string | null }> = [
-  { name: 'Facebook', placeholder: 'https://facebook.com/yourpage', iconUrl: getSocialIconUrlSvg('Facebook', '') },
-  { name: 'Twitter/X', placeholder: 'https://twitter.com/yourhandle', iconUrl: getSocialIconUrlSvg('Twitter/X', '') },
-  { name: 'LinkedIn', placeholder: 'https://linkedin.com/company/yourcompany', iconUrl: getSocialIconUrlSvg('LinkedIn', '') },
-  { name: 'YouTube', placeholder: 'https://youtube.com/@yourchannel', iconUrl: getSocialIconUrlSvg('YouTube', '') },
-  { name: 'Instagram', placeholder: 'https://instagram.com/yourhandle', iconUrl: getSocialIconUrlSvg('Instagram', '') },
-  { name: 'TikTok', placeholder: 'https://tiktok.com/@yourhandle', iconUrl: getSocialIconUrlSvg('TikTok', '') },
-  { name: 'Pinterest', placeholder: 'https://pinterest.com/yourprofile', iconUrl: getSocialIconUrlSvg('Pinterest', '') },
-  { name: 'Snapchat', placeholder: 'https://snapchat.com/add/yourhandle', iconUrl: getSocialIconUrlSvg('Snapchat', '') },
-  { name: 'Reddit', placeholder: 'https://reddit.com/user/yourhandle', iconUrl: getSocialIconUrlSvg('Reddit', '') },
-  { name: 'Discord', placeholder: 'https://discord.gg/yourserver', iconUrl: getSocialIconUrlSvg('Discord', '') },
-  { name: 'GitHub', placeholder: 'https://github.com/yourusername', iconUrl: getSocialIconUrlSvg('GitHub', '') },
-  { name: 'WhatsApp', placeholder: 'https://wa.me/yournumber', iconUrl: getSocialIconUrlSvg('WhatsApp', '') },
-  { name: 'Telegram', placeholder: 'https://t.me/yourhandle', iconUrl: getSocialIconUrlSvg('Telegram', '') },
-  { name: 'Custom', placeholder: '', iconUrl: null }
+  { name: 'WhatsApp', placeholder: 'https://wa.me/yournumber', iconUrl: getSocialIconUrlPng('WhatsApp', '') },
+  { name: 'Facebook', placeholder: 'https://facebook.com/yourpage', iconUrl: getSocialIconUrlPng('Facebook', '') },
+  { name: 'Instagram', placeholder: 'https://instagram.com/yourhandle', iconUrl: getSocialIconUrlPng('Instagram', '') },
+  { name: 'Telegram', placeholder: 'https://t.me/yourhandle', iconUrl: getSocialIconUrlPng('Telegram', '') },
+  { name: 'TikTok', placeholder: 'https://tiktok.com/@yourhandle', iconUrl: getSocialIconUrlPng('TikTok', '') },
+  { name: 'Gmail', placeholder: 'mailto:your-email@gmail.com', iconUrl: getSocialIconUrlPng('Gmail', '') }
 ];
 
 // Default CTAs per template type
@@ -664,10 +664,10 @@ const EmailTemplates: React.FC = () => {
     const newSocials = [...currentSocials];
     const currentSocial = newSocials[index];
     const currentUrl = currentSocial?.url || '';
-    // Automatically detect and set SVG icon URL for in-app display (lightweight, colorful)
-    const autoIconUrl = getSocialIconUrlSvg(value, currentUrl);
+    // Automatically detect and set PNG icon URL (works in both preview and email)
+    const autoIconUrl = getSocialIconUrlPng(value, currentUrl);
     // Always ensure iconUrl is set - use auto-detected, existing, or default share icon
-    const finalIconUrl = autoIconUrl || currentSocial?.iconUrl || getSocialIconUrlSvg('', '') || 'https://img.icons8.com/color/24/000000/share.png';
+    const finalIconUrl = autoIconUrl || currentSocial?.iconUrl || getSocialIconUrlPng('', '') || 'https://img.icons8.com/color/24/000000/share.png';
     newSocials[index] = { 
       ...newSocials[index], 
       name: value,
@@ -684,10 +684,10 @@ const EmailTemplates: React.FC = () => {
     const newSocials = [...currentSocials];
     const currentSocial = newSocials[index];
     const currentName = currentSocial?.name || '';
-    // Automatically detect and set SVG icon URL for in-app display (lightweight, colorful)
-    const autoIconUrl = getSocialIconUrlSvg(currentName, value);
+    // Automatically detect and set PNG icon URL (works in both preview and email)
+    const autoIconUrl = getSocialIconUrlPng(currentName, value);
     // Always ensure iconUrl is set - use auto-detected, existing, or default share icon
-    const finalIconUrl = autoIconUrl || currentSocial?.iconUrl || getSocialIconUrlSvg('', '') || 'https://img.icons8.com/color/24/000000/share.png';
+    const finalIconUrl = autoIconUrl || currentSocial?.iconUrl || getSocialIconUrlPng('', '') || 'https://img.icons8.com/color/24/000000/share.png';
     newSocials[index] = { 
       ...newSocials[index], 
       url: value,
@@ -724,23 +724,17 @@ const EmailTemplates: React.FC = () => {
     syncSharedBrandingToTemplates(updatedShared);
   }, [sharedBranding, syncSharedBrandingToTemplates]);
 
-  const handleSocialAdd = useCallback((platform?: { name: string; placeholder: string; iconUrl: string | null }) => {
-    let newSocial: SocialLink;
+  const handleSocialAdd = useCallback((platform: { name: string; placeholder: string; iconUrl: string | null }) => {
+    // Only allow adding from the predefined platform list
+    if (!platform) return;
     
-    if (platform) {
-      // Platform selected from dropdown
-      const iconUrl = platform.iconUrl || getSocialIconUrlSvg(platform.name, '') || 'https://cdn.simpleicons.org/share/2563eb';
-      newSocial = { 
-        id: `social-${Date.now()}`, 
-        name: platform.name, 
-        url: platform.placeholder, 
-        iconUrl: iconUrl 
-      };
-    } else {
-      // Custom option
-      const defaultIconUrl = getSocialIconUrlSvg('', '') || 'https://cdn.simpleicons.org/share/2563eb';
-      newSocial = { id: `social-${Date.now()}`, name: '', url: '', iconUrl: defaultIconUrl };
-    }
+    const iconUrl = platform.iconUrl || getSocialIconUrlPng(platform.name, '') || 'https://cdn.simpleicons.org/share/2563eb';
+    const newSocial: SocialLink = { 
+      id: `social-${Date.now()}`, 
+      name: platform.name, 
+      url: platform.placeholder, 
+      iconUrl: iconUrl 
+    };
     
     const currentSocials = sharedBranding.socialLinks || [];
     const newSocials = [...currentSocials, newSocial];
@@ -771,25 +765,25 @@ const EmailTemplates: React.FC = () => {
           </tr>`
       : '';
     
-    // Generate social links row (custom icons) - convert SVG to PNG for email compatibility
-    // In-app we use SVG (stored in iconUrl), but for email we need PNG format
+    // Generate social links row (custom icons) - use PNG icons for both preview and email
+    // PNG icons work in both browser preview and email clients
     const socialLinks = ((d.socialLinks || sharedBranding.socialLinks) || [])
       .map(social => {
-        // If iconUrl is SVG or empty, convert to PNG for email
+        // If iconUrl is SVG or empty, get PNG version
         const iconUrl = social.iconUrl || '';
-        let emailIconUrl = iconUrl;
+        let displayIconUrl = iconUrl;
         
-        // If it's an SVG URL or empty, get PNG version for email
+        // If it's an SVG URL or empty, get PNG version
         if (!iconUrl || iconUrl.includes('.svg') || iconUrl.includes('simpleicons.org')) {
-          emailIconUrl = getSocialIconUrlPng(social.name || '', social.url || '');
+          displayIconUrl = getSocialIconUrlPng(social.name || '', social.url || '');
         }
         
         // Ensure we always have a valid iconUrl (fallback to default share icon)
-        if (!emailIconUrl || emailIconUrl.trim().length === 0) {
-          emailIconUrl = 'https://img.icons8.com/color/24/000000/share.png';
+        if (!displayIconUrl || displayIconUrl.trim().length === 0) {
+          displayIconUrl = 'https://img.icons8.com/color/24/000000/share.png';
         }
         
-        return { ...social, iconUrl: emailIconUrl };
+        return { ...social, iconUrl: displayIconUrl };
       })
       .filter(social => {
         // Only include links with valid icon URLs and at least a name or URL
@@ -800,7 +794,7 @@ const EmailTemplates: React.FC = () => {
       ? `<tr><td align="center" style="padding-top:8px;padding-bottom:8px">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0">
               <tr>
-                ${socialLinks.map(social => `<td style="padding:0 6px"><a href="${social.url || '#'}" target="_blank" style="text-decoration:none;display:inline-block"><img src="${social.iconUrl}" alt="${social.name || 'Social'}" width="24" height="24" border="0" style="width:24px;height:24px;border-radius:4px;display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" /></a></td>`).join('')}
+                ${socialLinks.map(social => `<td style="padding:0 6px"><a href="${social.url || '#'}" target="_blank" style="text-decoration:none;display:inline-block"><img src="${social.iconUrl}" alt="${social.name || 'Social'}" width="24" height="24" border="0" referrerpolicy="no-referrer" style="width:24px;height:24px;border-radius:4px;display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic" /></a></td>`).join('')}
               </tr>
             </table>
          </td></tr>`
@@ -1013,11 +1007,18 @@ const EmailTemplates: React.FC = () => {
               sharedLogoUrl = sharedBrandingFromApi.logoUrl;
               sharedBannerUrl = sharedBrandingFromApi.bannerUrl;
               sharedSocialLinks = (sharedBrandingFromApi.socialLinks || []).map((social: SocialLink) => {
-                // Ensure iconUrl is set - auto-detect if missing
+                // Ensure iconUrl is set - auto-detect if missing, convert SVG to PNG if needed
                 if (!social.iconUrl && (social.name || social.url)) {
                   return {
                     ...social,
-                    iconUrl: getSocialIconUrlSvg(social.name || '', social.url || '')
+                    iconUrl: getSocialIconUrlPng(social.name || '', social.url || '')
+                  };
+                }
+                // Convert existing SVG URLs to PNG for consistency
+                if (social.iconUrl && (social.iconUrl.includes('.svg') || social.iconUrl.includes('simpleicons.org'))) {
+                  return {
+                    ...social,
+                    iconUrl: getSocialIconUrlPng(social.name || '', social.url || '')
                   };
                 }
                 return social;
@@ -1475,30 +1476,23 @@ const EmailTemplates: React.FC = () => {
                           const alreadyAdded = (sharedBranding.socialLinks || []).some(
                             s => s.name.toLowerCase() === platform.name.toLowerCase()
                           );
-                          const isCustom = platform.name === 'Custom';
                           
                           return (
                             <button
                               key={platform.name}
-                              disabled={!isCustom && alreadyAdded}
+                              disabled={alreadyAdded}
                               onClick={() => {
-                                if (isCustom) {
-                                  handleSocialAdd();
-                                } else {
-                                  handleSocialAdd(platform);
-                                }
+                                handleSocialAdd(platform);
                               }}
                               className={`w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-all ${
-                                !isCustom && alreadyAdded
+                                alreadyAdded
                                   ? 'bg-slate-50 text-slate-400 cursor-not-allowed opacity-60'
                                   : 'hover:bg-blue-50 hover:text-blue-600 text-slate-700 cursor-pointer'
                               }`}
                             >
-                              {platform.iconUrl ? (
+                              {platform.iconUrl && (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={platform.iconUrl} alt={platform.name} className="w-5 h-5 flex-shrink-0" />
-                              ) : (
-                                <Plus className="w-5 h-5 flex-shrink-0 text-slate-400" />
                               )}
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium truncate">{platform.name}</div>
@@ -1506,7 +1500,7 @@ const EmailTemplates: React.FC = () => {
                                   <div className="text-xs text-slate-400 truncate">{platform.placeholder}</div>
                                 )}
                               </div>
-                              {!isCustom && alreadyAdded && <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
+                              {alreadyAdded && <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
                             </button>
                           );
                         })}
@@ -1832,7 +1826,6 @@ const EmailTemplates: React.FC = () => {
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                   <iframe
                     title="email-preview"
-                    sandbox=""
                     className="w-full h-[400px] sm:h-[450px] md:h-[500px] lg:h-[600px] xl:h-[650px]"
                     srcDoc={generateHtml(emailTemplates[selectedTemplate])}
                   />

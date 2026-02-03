@@ -128,57 +128,61 @@ export function renderTemplate(input: string, vars: Record<string, string | numb
 	});
 }
 
-// Function to automatically detect social media platform and return colorful PNG icon URL (for email use)
-// Uses a reliable CDN that provides PNG format colorful icons for email compatibility
+// Function to automatically detect social media platform and return PNG icon URL (for email use)
+// Uses a reliable PNG icon source that works in all email clients
 function getSocialIconUrlPng(platformName: string, url: string): string {
 	const name = (platformName || '').toLowerCase().trim();
 	const urlLower = (url || '').toLowerCase();
 	
-	// Use colorful PNG icons from a reliable CDN (icons8 provides PNG format)
-	// These are colorful, email-compatible PNG icons (24x24px for optimal email display)
+	// Use PNG icons from a reliable CDN that works in all email clients
+	// Using icons from icon-library.com or similar reliable PNG source
+	// Format: Direct PNG URLs that work in email clients
+	
 	if (name.includes('facebook') || urlLower.includes('facebook.com') || urlLower.includes('fb.com')) {
-		return 'https://img.icons8.com/color/24/000000/facebook-new.png';
+		return 'https://cdn-icons-png.flaticon.com/512/124/124010.png';
 	}
 	if (name.includes('twitter') || name.includes('x ') || urlLower.includes('twitter.com') || urlLower.includes('x.com')) {
-		return 'https://img.icons8.com/color/24/000000/twitter--v1.png';
+		return 'https://cdn-icons-png.flaticon.com/512/124/124021.png';
 	}
 	if (name.includes('instagram') || urlLower.includes('instagram.com')) {
-		return 'https://img.icons8.com/color/24/000000/instagram-new.png';
+		return 'https://cdn-icons-png.flaticon.com/512/174/174855.png';
 	}
 	if (name.includes('linkedin') || urlLower.includes('linkedin.com')) {
-		return 'https://img.icons8.com/color/24/000000/linkedin.png';
+		return 'https://cdn-icons-png.flaticon.com/512/174/174857.png';
 	}
 	if (name.includes('youtube') || urlLower.includes('youtube.com') || urlLower.includes('youtu.be')) {
-		return 'https://img.icons8.com/color/24/000000/youtube-play.png';
+		return 'https://cdn-icons-png.flaticon.com/512/174/174883.png';
 	}
 	if (name.includes('tiktok') || urlLower.includes('tiktok.com')) {
-		return 'https://img.icons8.com/color/24/000000/tiktok--v1.png';
+		return 'https://cdn-icons-png.flaticon.com/512/3046/3046120.png';
 	}
 	if (name.includes('pinterest') || urlLower.includes('pinterest.com')) {
-		return 'https://img.icons8.com/color/24/000000/pinterest.png';
+		return 'https://cdn-icons-png.flaticon.com/512/174/174863.png';
 	}
 	if (name.includes('snapchat') || urlLower.includes('snapchat.com')) {
-		return 'https://img.icons8.com/color/24/000000/snapchat.png';
+		return 'https://cdn-icons-png.flaticon.com/512/2111/2111890.png';
 	}
 	if (name.includes('reddit') || urlLower.includes('reddit.com')) {
-		return 'https://img.icons8.com/color/24/000000/reddit.png';
+		return 'https://cdn-icons-png.flaticon.com/512/2111/2111379.png';
 	}
 	if (name.includes('discord') || urlLower.includes('discord.com') || urlLower.includes('discord.gg')) {
-		return 'https://img.icons8.com/color/24/000000/discord-logo.png';
+		return 'https://cdn-icons-png.flaticon.com/512/2111/2111370.png';
 	}
 	if (name.includes('github') || urlLower.includes('github.com')) {
-		return 'https://img.icons8.com/color/24/000000/github--v1.png';
+		return 'https://cdn-icons-png.flaticon.com/512/25/25231.png';
 	}
 	if (name.includes('whatsapp') || urlLower.includes('whatsapp.com') || urlLower.includes('wa.me')) {
-		return 'https://img.icons8.com/color/24/000000/whatsapp.png';
+		return 'https://cdn-icons-png.flaticon.com/512/124/124034.png';
 	}
 	if (name.includes('telegram') || urlLower.includes('telegram.org') || urlLower.includes('t.me')) {
-		return 'https://img.icons8.com/color/24/000000/telegram-app.png';
+		return 'https://cdn-icons-png.flaticon.com/512/2111/2111646.png';
+	}
+	if (name.includes('gmail') || urlLower.includes('gmail.com') || urlLower.includes('mailto:')) {
+		return 'https://cdn-icons-png.flaticon.com/512/732/732200.png';
 	}
 	
-	// Default: return a generic social media icon if platform not recognized
-	// This ensures we always have a valid icon URL, preventing broken images
-	return 'https://img.icons8.com/color/24/000000/share.png';
+	// Default: return a generic share icon
+	return 'https://cdn-icons-png.flaticon.com/512/1828/1828843.png';
 }
 
 // Default titles per template type
